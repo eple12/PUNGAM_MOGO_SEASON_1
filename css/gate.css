@@ -1,0 +1,60 @@
+/* =====================================================================
+ * 접속 잠금 화면
+ * ===================================================================== */
+
+.gate{
+  position:fixed;inset:0;z-index:99999;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--navy);
+  padding:24px;
+}
+.gate__box{
+  width:100%;max-width:360px;
+  background:var(--paper);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:32px 28px;
+  text-align:center;
+}
+.gate__title{
+  margin:0 0 6px;
+  font-size:19px;font-weight:700;color:var(--ink);
+}
+.gate__sub{
+  margin:0 0 20px;
+  font-size:14px;color:var(--ink-3);
+}
+.gate__input{
+  width:100%;
+  border:1.5px solid var(--line-2);
+  border-radius:8px;
+  padding:12px 14px;
+  font-size:15px;
+  text-align:center;
+  letter-spacing:.04em;
+  background:var(--navy-soft);
+}
+.gate__input:focus{outline:none;border-color:var(--navy-2)}
+.gate__btn{
+  width:100%;
+  margin-top:12px;
+  padding:12px 14px;
+  border:none;border-radius:8px;
+  background:var(--navy-2);color:#fff;
+  font-size:15px;font-weight:600;
+  cursor:pointer;
+}
+.gate__btn:disabled{opacity:.6;cursor:default}
+.gate__btn:not(:disabled):hover{background:var(--navy)}
+.gate__error{
+  margin:14px 0 0;
+  font-size:13px;color:var(--danger);
+}
+
+@keyframes gateShake{
+  10%,90%{transform:translateX(-1px)}
+  20%,80%{transform:translateX(2px)}
+  30%,50%,70%{transform:translateX(-4px)}
+  40%,60%{transform:translateX(4px)}
+}
+.gate--shake .gate__box{animation:gateShake .3s linear}

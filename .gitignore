@@ -1,0 +1,11 @@
+node_modules/
+
+# 문항 원본(평문) — 절대 커밋/배포 금지. js/questions.enc.js(암호문)만 배포한다.
+tools/questions.source.js
+
+# 관리자 대시보드 — 이 시험 사이트 저장소와 무관한 별도 로컬 전용 도구이며,
+# Firestore 전체 접근 권한을 가진 자격증명이 들어가므로 통째로 제외한다.
+admin/
+
+# 로컬 Claude Code 개발 도구 설정 — 배포 사이트와 무관
+.claude/

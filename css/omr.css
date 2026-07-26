@@ -1,0 +1,302 @@
+/* =====================================================================
+ * OMR 답안지
+ * ===================================================================== */
+
+/* ---------------- 인적사항 화면 틀 ---------------- */
+#screenIdentity.is-active{display:flex;flex-direction:column;height:100dvh;overflow:hidden;background:#EFEAC8}
+.idbar{
+  flex:none;display:flex;align-items:center;justify-content:space-between;gap:14px;
+  height:58px;padding:0 20px;background:#fff;border-bottom:1px solid var(--line);
+}
+.idbar__left{display:flex;align-items:baseline;gap:10px}
+.idbar__title{font-size:16px;font-weight:700;letter-spacing:-.02em}
+.idbar__right{display:flex;align-items:center;gap:6px}
+.idbar__hint{
+  flex:none;padding:10px 20px;background:#FFF6F9;border-bottom:1px solid #F3D3DF;
+  font-size:13px;color:#8E2350;letter-spacing:-.01em;
+}
+#screenIdentity .sheet-scroll{flex:1;min-height:0}
+
+.omr-overlay__panel{background:#EFEAC8}
+
+/* ---------------- 답안지 본체 ---------------- */
+.omr{
+  --bub:26px;
+  position:relative;
+  display:flex;flex-direction:column;
+  max-width:1240px;margin:0 auto;padding:0 0 22px;
+  background:var(--omr-paper);
+  border:1px solid #DCD6A6;border-radius:6px;
+  box-shadow:0 6px 26px rgba(60,55,20,.14);
+  color:var(--omr-ink);
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+}
+.omr .wfield,.omr .verify__canvas{user-select:text;-webkit-user-select:text}
+/* 시험 중에는 답란을 먼저 보여 준다. 인적사항은 그대로 아래에 남는다 */
+.omr.is-exam .omr__ans,.omr.is-locked .omr__ans{order:1}
+.omr.is-exam .omr__top,.omr.is-locked .omr__top{order:2;margin-top:16px;padding-top:14px;border-top:1px dashed var(--omr-ink-2)}
+
+/* 스캐너 맞춤선(타이밍 마크). 위아래로 긴 막대를 불규칙한 간격 · 뭉치로 두고
+   (배치는 omr.js 의 OMR_PUNCH_BG), 종이 가장자리에서 살짝 띄운다. */
+.omr__punch{
+  flex:none;height:26px;margin:10px 18px 4px;
+  background-repeat:repeat-x;background-position:left top;
+  image-rendering:crisp-edges;
+}
+
+
+.omr__head{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:20px;
+  padding:12px 20px 14px;
+}
+.omr__doc{font-size:19px;font-weight:800;letter-spacing:-.03em}
+/* 원(②)과 글자를 vertical-align 픽셀값으로 맞추면 폰트가 바뀔 때마다 어긋난다.
+   대신 flex baseline 정렬을 써서 원 안의 숫자 기준선이 옆 글자와 항상 맞도록 한다. */
+.omr__area{
+  display:flex;align-items:center;gap:5px;
+  margin-top:8px;font-size:22px;font-weight:800;letter-spacing:.04em;
+}
+.omr__area b{letter-spacing:.14em}
+.omr__period{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:26px;height:26px;flex:none;border:2px solid var(--omr-ink);border-radius:50%;
+  font-size:15px;
+}
+.omr__headR{text-align:right;font-size:11.5px;line-height:1.75;max-width:52%}
+.omr__headR p{margin:0}
+
+.omr__top{display:flex;gap:14px;align-items:flex-start;padding:0 20px}
+.omr__info{width:392px;flex:none}
+.omr__guide{flex:1;min-width:0}
+
+/* ---------------- 상자 공통 ---------------- */
+.obox{
+  border:1.6px solid var(--omr-ink);border-radius:5px;margin-bottom:10px;overflow:hidden;
+  background:rgba(255,255,255,.28);
+}
+.obox__hd{
+  background:var(--omr-soft);border-bottom:1.6px solid var(--omr-ink);
+  padding:5px 11px;font-size:13px;font-weight:800;letter-spacing:-.01em;
+}
+.obox__note{font-size:10.5px;font-weight:500;margin-left:4px}
+.obox__bd{padding:9px 11px}
+.obox__foot{padding:0 11px 8px;font-size:10.5px}
+
+/* 결시자 */
+.absent{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.absent__txt{font-size:11.5px;line-height:1.6}
+.absent__circle{
+  flex:none;width:26px;height:26px;border:1.6px solid var(--omr-ink);border-radius:50%;
+}
+
+/* 필적 확인란 */
+.verify{position:relative}
+/* 문구와 지우기 버튼을 한 줄에 둔다(예전에는 버튼이 상자 경계에 걸쳐 있었다) */
+.verify__top{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin-bottom:6px;min-height:20px;
+}
+.verify__phrase{font-size:12px;font-weight:700;letter-spacing:-.01em}
+.verify__canvas{
+  display:block;width:100%;height:54px;background:#fff;
+  border:1px dashed var(--omr-ink-2);border-radius:3px;
+  touch-action:none;-webkit-touch-callout:none;
+}
+.verify__clear{
+  flex:none;border:1px solid var(--omr-ink-2);background:#fff;color:var(--omr-ink);
+  font-size:10.5px;line-height:1.5;padding:2px 10px;border-radius:999px;
+  cursor:pointer;touch-action:manipulation;
+  transition:background .12s linear,border-color .12s linear;
+}
+.verify__clear:hover{border-color:var(--omr-ink)}
+.verify__clear:active{background:var(--omr-soft)}
+.omr.is-locked .verify__clear{opacity:.4;pointer-events:none}
+/* 필적 확인란은 인적사항 작성 중에만 쓸 수 있다. 시험이 시작되면(is-exam)
+   더 이상 손댈 수 없는 완료된 기록처럼 보이게 잠근다. */
+.omr.is-exam .verify__canvas{touch-action:auto;cursor:default;border-style:solid;background:#FBFAF1}
+.omr.is-exam .verify__clear{opacity:.4;pointer-events:none}
+
+/* 성명 · 학번 */
+.wfield{
+  width:100%;height:36px;border:1.4px solid var(--omr-ink-2);border-radius:4px;background:#fff;
+  padding:0 11px;font-size:15px;color:#1B1B1F;outline:none;
+}
+.wfield:focus{border-color:var(--omr-ink);box-shadow:0 0 0 2px rgba(225,34,108,.14)}
+.wfield:read-only{background:#F7F4E4;border-style:dashed;color:#3A3A40}
+.wfield--num{letter-spacing:.5em;font-variant-numeric:tabular-nums;font-weight:600}
+.wfield__note{margin-top:5px;font-size:10.5px}
+
+/* 학번 칸이름 위쪽에 붉은 구분선을 둬서 성명 항목과 시각적으로 분리한다 */
+.obox__hd--rule{border-top:2px solid var(--omr-ink);margin-top:9px}
+
+/* 학번 입력칸 옆 비재학생 버튼 */
+.idhead{display:flex;gap:8px;align-items:stretch}
+.idhead .wfield{flex:1;min-width:0}
+.idskip{
+  flex:none;border:1.2px solid var(--omr-ink-2);background:#fff;color:var(--omr-ink);
+  font-size:11px;font-weight:600;padding:0 10px;border-radius:4px;cursor:pointer;
+  white-space:nowrap;touch-action:manipulation;
+}
+.idskip.is-on{background:var(--omr-ink);border-color:var(--omr-ink);color:#fff}
+.omr.is-noid .idcols{opacity:.35;pointer-events:none}
+
+.idlabels{display:flex;gap:5px;margin:9px 0 3px;font-size:10.5px;font-weight:700}
+.idlabel{text-align:center}
+.idlabel--dash{width:11px;flex:none}
+.idcols{display:flex;gap:5px;align-items:stretch}
+.idgroup{display:flex;gap:4px}   /* 폭은 idFlex() 가 인라인으로 지정한다 */
+.iddash{
+  width:11px;flex:none;display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:800;
+}
+.idcol{
+  flex:1;border:1.2px solid var(--omr-ink-2);border-radius:4px;padding:3px 2px;background:rgba(255,255,255,.4);
+}
+.idrow{padding:1px 0}
+
+/* 문형 */
+.formbox{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.formbox__row{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700}
+.formbox__note{font-size:10.5px;font-weight:500;color:var(--omr-ink)}
+
+/* 감독관 */
+.sup{display:flex;align-items:center;gap:12px;font-size:11px;line-height:1.6}
+.sup__sign{
+  position:relative;flex:none;width:104px;height:52px;border:1.2px solid var(--omr-ink-2);border-radius:3px;
+  display:flex;align-items:center;justify-content:center;font-size:10px;overflow:hidden;
+}
+/* 감독관 날인 — 인적사항 작성을 마치면 "서명 또는 날인" 안내 글자 위로
+   붉은 인장이 겹쳐 찍힌다(실제 도장처럼 아래 글자를 완전히 가리지 않고
+   비뚤게 겹쳐야 인쇄물에 도장을 찍은 느낌이 난다). 안내 글자는 계속 살려 둔다.
+   테두리·구획선·"김민 / 수인" 글씨·얼룩 질감까지 전부 img/seal_gimminsu.png
+   한 장에 미리 구워 뒀으므로(omr.js 참고), 기기에 실제 한전서체 폰트가
+   있는지와 무관하게 항상 같은 모양으로 찍힌다. */
+.sup__seal{
+  display:none;position:absolute;top:50%;left:50%;
+  width:44px;height:44px;
+  mix-blend-mode:multiply;
+}
+.omr.is-signed .sup__seal{
+  display:block;
+  transform:translate(-50%,-54%) rotate(-8deg);
+  animation:sealStamp .22s cubic-bezier(.2,.9,.3,1.2);
+}
+.sup__sealImg{display:block;width:100%;height:100%}
+@keyframes sealStamp{
+  0%{transform:translate(-50%,-54%) rotate(-8deg) scale(1.7);opacity:0}
+  60%{opacity:1}
+  100%{transform:translate(-50%,-54%) rotate(-8deg) scale(1)}
+}
+
+/* 표기방법 안내 */
+/* 동그라미 숫자 — 유니코드 글리프 대신 직접 그려서 0~9가 항상 같은 모양으로 보인다 */
+.circ{
+  display:inline-flex;align-items:center;justify-content:center;flex:none;
+  width:1.15em;height:1.15em;margin:0 .04em;padding:.08em 0 0;
+  border:1.2px solid currentColor;border-radius:50%;
+  font-size:.86em;font-weight:800;font-style:normal;line-height:1;
+  font-variant-numeric:tabular-nums;vertical-align:middle;
+}
+
+.guide__list{margin:0;padding-left:16px;font-size:12.5px;line-height:1.85}
+.guide__list li{margin-bottom:4px}
+.guide__ex{margin-top:10px;padding-top:9px;border-top:1px dashed var(--omr-ink-2)}
+.guide__exHd{font-size:12px;font-weight:800;margin-bottom:6px}
+.guide__row{font-size:12.5px;line-height:2.0;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+/* 100 / 98 / 5 처럼 자릿수가 달라도 상자 크기가 같도록 폭을 고정하고,
+   숫자만 오른쪽 정렬한다("정답"은 고정, 숫자만 tabular-nums 로 자리를 맞춘다) */
+.tagbox{
+  display:inline-flex;align-items:baseline;justify-content:space-between;gap:8px;
+  width:5.6em;white-space:nowrap;
+  border:1.2px solid var(--omr-ink);border-radius:3px;padding:1px 8px;font-size:12px;
+  background:rgba(255,255,255,.5);
+}
+.tagbox b{font-weight:800;font-variant-numeric:tabular-nums}
+.guide__note{
+  margin-top:9px;font-size:11.5px;line-height:1.7;padding-top:8px;
+  border-top:1px dashed var(--omr-ink-2);font-weight:600;
+}
+.guide__note + .guide__note{border-top:none;margin-top:2px;padding-top:0;font-weight:500}
+
+/* ---------------- 답란 ---------------- */
+.omr__ans{position:relative;padding:4px 20px 0}
+.omr__ansHd{
+  background:var(--omr-soft);border:1.6px solid var(--omr-ink);border-radius:5px;
+  text-align:center;font-size:14px;font-weight:800;letter-spacing:.5em;padding:4px 0;margin-bottom:9px;
+}
+.ansgrid{display:grid;grid-template-columns:repeat(10,1fr);gap:7px}
+
+.qcol{border:1.6px solid var(--omr-ink);border-radius:5px;overflow:hidden;background:rgba(255,255,255,.3)}
+.qcol__hd{
+  background:var(--omr-soft);border-bottom:1.4px solid var(--omr-ink);
+  text-align:center;font-size:12.5px;font-weight:800;padding:3px 0;
+}
+.qcol__sub{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  border-bottom:1.2px solid var(--omr-ink-2);font-size:10px;font-weight:700;text-align:center;padding:2px 0;
+}
+.qcol__sub span + span{border-left:1px dashed var(--omr-ink-2)}
+.qcol__sub .s1{grid-column:1 / -1}
+.qcol__body{padding:3px 2px 4px}
+.qcol.is-filled .qcol__hd{background:var(--omr-ink);color:#FFF7FA}
+
+.drow{display:grid;grid-template-columns:repeat(3,1fr)}
+.dcell{display:block;padding:1px 0}
+.dcell + .dcell{border-left:1px dashed rgba(238,134,174,.5)}
+.dcell--blank{visibility:hidden}
+
+.qcol__body--choice{
+  /* 옆의 단답형 칸(10행)과 가로줄이 맞도록 위에서부터 같은 행 높이로 채운다 */
+  display:flex;flex-direction:column;justify-content:flex-start;gap:0;
+  min-height:calc(var(--bub) * 10 + 26px);
+}
+.crow{padding:1px 0}
+
+/* ---------------- 마킹 칸 ---------------- */
+.bub{
+  appearance:none;display:flex;align-items:center;justify-content:center;
+  /* 실제 답안지처럼 타원이 아니라, 위아래는 반원으로 둥글고 가운데는
+     직선인 알약(스타디움) 모양으로 그린다. border-radius 를 50% 대신
+     충분히 큰 값으로 주면 폭의 절반까지만 둥글게 깎여 가운데 직선이 남는다. */
+  width:calc(var(--bub) * .56);height:var(--bub);max-width:100%;margin:0 auto;padding:0;
+  border:1.4px solid var(--omr-ink-2);border-radius:999px;background:transparent;
+  color:var(--omr-ink);font-size:11px;font-weight:600;line-height:1;
+  cursor:pointer;touch-action:manipulation;
+  transition:background .09s linear,border-color .09s linear;
+}
+.bub > span{pointer-events:none}
+.bub:active{background:rgba(225,34,108,.14)}
+.bub.is-on{background:var(--omr-mark);border-color:var(--omr-mark)}
+.bub.is-on > span{opacity:0}
+.bub--static{cursor:default;pointer-events:none}
+.bub--static.is-on{background:var(--omr-mark);border-color:var(--omr-mark)}
+
+.omr.is-white .bub.is-on{box-shadow:inset 0 0 0 2px #fff}
+.omr.is-locked .bub{cursor:default}
+
+/* 답란 가림막 */
+.ansveil{
+  display:none;position:absolute;inset:4px 20px 0;
+  align-items:center;justify-content:center;background:rgba(240,236,204,.72);
+  border-radius:6px;
+}
+.ansveil span{
+  background:#fff;border:1.6px solid var(--omr-ink);border-radius:8px;
+  padding:12px 22px;font-size:14px;font-weight:700;box-shadow:0 8px 24px rgba(60,55,20,.16);
+}
+.omr.is-identity .ansveil{display:flex}
+.omr.is-identity .ansgrid{pointer-events:none;opacity:.45}
+
+@media (max-width:1100px){
+  .ansgrid{grid-template-columns:repeat(6,1fr)}
+  .omr__top{flex-direction:column}
+  .omr__info{width:100%}
+}
+@media (max-width:720px){
+  .ansgrid{grid-template-columns:repeat(4,1fr)}
+  .omr__head{flex-direction:column;gap:8px}
+  .omr__headR{text-align:left;max-width:100%}
+  .sheet-scroll{padding:12px 10px 40px}
+  .omr__top,.omr__ans{padding-left:12px;padding-right:12px}
+  .ansveil{inset:4px 12px 0}
+}

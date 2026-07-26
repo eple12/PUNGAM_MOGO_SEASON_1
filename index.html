@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="format-detection" content="telephone=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>제1회 풍암 모의고사 · 수학 영역</title>
+
+<link rel="stylesheet" href="vendor/katex/katex.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/gate.css">
+<link rel="stylesheet" href="css/intro.css">
+<link rel="stylesheet" href="css/exam.css">
+<link rel="stylesheet" href="css/omr.css">
+<link rel="stylesheet" href="css/result.css">
+</head>
+<body>
+
+<!-- ============================ 접속 잠금 화면 ============================ -->
+<div class="gate" id="gateOverlay">
+  <form class="gate__box" id="gateForm">
+    <h1 class="gate__title">제1회 풍암 모의고사</h1>
+    <p class="gate__sub">출제진 확인용 임시 배포입니다. 접속 비밀번호를 입력하십시오.</p>
+    <input class="gate__input" id="gatePw" type="password" autocomplete="off" placeholder="비밀번호" autocapitalize="off" autocorrect="off">
+    <button class="gate__btn" type="submit">입장</button>
+    <p class="gate__error" id="gateError" hidden>비밀번호가 올바르지 않습니다.</p>
+  </form>
+</div>
+
+<!-- ============================ 시작 페이지 ============================ -->
+<section class="screen is-active" id="screenIntro">
+  <div class="intro">
+
+    <header class="intro__head">
+      <h1 class="intro__title" id="introTitle">제1회 풍암 모의고사</h1>
+      <p class="intro__sub" id="introSub">수학 영역 · 대수</p>
+      <ul class="intro__meta" id="introMeta"></ul>
+    </header>
+
+    <div class="intro__grid">
+
+      <article class="card card--wide">
+        <h2 class="card__title">출제진</h2>
+        <div class="authors" id="authorList"></div>
+      </article>
+
+      <article class="card">
+        <h2 class="card__title">응시 유의사항</h2>
+        <ol class="rules" id="ruleList"></ol>
+      </article>
+
+      <article class="card">
+        <h2 class="card__title">응시 방법</h2>
+        <div class="steps" id="stepList"></div>
+        <div class="notice" id="deviceNotice">
+          <strong>기기 안내</strong>
+          <span>태블릿(갤럭시탭 · 아이패드) 가로 화면에 최적화되어 있습니다. 스타일러스가 있으면 펜으로 필기하고 손가락으로 화면을 넘기십시오. 스타일러스가 없으면 상단의 <em>손가락 필기</em>를 켠 뒤, 두 손가락으로 화면을 넘기면 됩니다.</span>
+        </div>
+      </article>
+
+    </div>
+
+    <footer class="intro__foot">
+      <div class="intro__warn">
+        <strong>주의사항</strong>
+        <p><b>한 사람은 단 한 번만 응시할 수 있습니다.</b> 재응시는 허용되지 않습니다.</p>
+        <p>본 시험지의 무단 복제 및 배포를 금지합니다. 또한 문항 및 지문의 전부 또는 일부를 생성형 AI에 입력하는 행위를 금지합니다.</p>
+      </div>
+      <button class="btn btn--primary btn--xl" id="btnStart" type="button">응시 시작</button>
+      <p class="intro__footnote">응시 시작을 누르면 답안지(OMR)가 열리며 인적사항을 작성하게 됩니다. 인적사항 작성을 마치고 <b>시험 시작</b>을 누르는 순간부터 시간이 측정됩니다.</p>
+      <p class="intro__credit" id="introCredit"></p>
+    </footer>
+
+  </div>
+
+  <!-- 첫 페이지에서만 보이는 전체 응시자 점수 분포 버튼 -->
+  <button class="scoredist-btn" id="btnScoreDist" type="button" aria-label="전체 응시자 점수 분포 보기">
+    <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
+      <path d="M5 20V13M12 20V8M19 20V4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
+</section>
+
+<!-- ============================ 인적사항 작성 ============================ -->
+<section class="screen" id="screenIdentity">
+  <div class="idbar">
+    <div class="idbar__left">
+      <span class="idbar__title">답안지 인적사항 작성</span>
+    </div>
+    <div class="idbar__right">
+      <button class="btn btn--text" id="btnBackIntro" type="button">안내로 돌아가기</button>
+      <button class="btn btn--primary" id="btnBeginExam" type="button">작성 완료 · 시험 시작</button>
+    </div>
+  </div>
+  <div class="idbar__hint">
+    성명은 <b>반드시 실명</b>으로 작성하십시오. 학번과 성명이 확인되지 않은 답안은 채점되지 않습니다.
+  </div>
+  <div class="sheet-scroll" id="identitySheetHost"></div>
+</section>
+
+<!-- ============================ 시험 화면 ============================ -->
+<section class="screen" id="screenExam">
+
+  <header class="topbar">
+    <div class="topbar__group topbar__group--left">
+      <div class="clock" id="clock">
+        <span class="clock__label">남은 시간</span>
+        <span class="clock__time" id="clockTime">100:00</span>
+      </div>
+    </div>
+
+    <div class="topbar__group topbar__group--center">
+      <button class="navbtn" id="btnPrev" type="button" aria-label="이전 문항">◀</button>
+      <button class="qpick" id="btnQuestionList" type="button">
+        <span class="qpick__no" id="qpickNo">1</span><span class="qpick__of">/ 30</span>
+      </button>
+      <button class="navbtn" id="btnNext" type="button" aria-label="다음 문항">▶</button>
+    </div>
+
+    <div class="topbar__group topbar__group--right">
+      <div class="tools" role="group" aria-label="필기도구">
+        <button class="tool is-on" id="toolPen" type="button">펜</button>
+        <button class="tool" id="toolEraser" type="button">획 지우개</button>
+        <button class="tool tool--sep" id="toolFinger" type="button">손가락 필기</button>
+      </div>
+      <button class="btn btn--outline btn--sm" id="btnSubmit" type="button">답안 제출</button>
+    </div>
+  </header>
+
+  <!-- 문항 목록 -->
+  <div class="qlist" id="qlist" hidden>
+    <div class="qlist__head">
+      <span>문항 이동 · 마킹 현황</span>
+      <button class="btn btn--text" id="btnClearInk" type="button">현재 문항 필기 지우기</button>
+    </div>
+    <div class="qlist__grid" id="qlistGrid"></div>
+    <div class="qlist__legend">
+      <span><i class="dot dot--done"></i>마킹 완료</span>
+      <span><i class="dot dot--todo"></i>미마킹</span>
+      <span><i class="dot dot--cur"></i>현재 문항</span>
+    </div>
+  </div>
+
+  <!-- 문제지 + 필기 -->
+  <div class="exam-body" id="paperScroll">
+    <div class="paper" id="paper">
+      <div class="paper__inner" id="paperInner"></div>
+      <canvas class="ink" id="inkCanvas"></canvas>
+    </div>
+  </div>
+
+  <div class="scrollhint" id="scrollHint">아래로 넘기면 필기 공간이 이어집니다</div>
+
+  <!-- OMR 귀퉁이 탭 -->
+  <button class="omr-tab" id="omrTab" type="button" aria-label="답안지 열기">
+    <span class="omr-tab__word">OMR</span>
+    <span class="omr-tab__sub">답안지</span>
+  </button>
+
+  <!-- OMR 오버레이 -->
+  <div class="omr-overlay" id="omrOverlay" aria-hidden="true">
+    <div class="omr-overlay__panel">
+      <div class="omr-overlay__bar">
+        <div class="omr-overlay__title">
+          <span class="omr-overlay__name">답안지</span>
+          <span class="omr-overlay__who" id="omrWho"></span>
+        </div>
+        <div class="omr-overlay__tools">
+          <span class="omr-overlay__toolLabel">필기구</span>
+          <button class="omrtool is-on" id="omrToolPen" type="button">컴퓨터용 사인펜</button>
+          <button class="omrtool" id="omrToolWhite" type="button">수정 테이프</button>
+          <span class="omr-overlay__clock" id="omrClock">100:00</span>
+          <button class="btn btn--outline btn--sm" id="btnCloseOmr" type="button">닫기</button>
+        </div>
+      </div>
+      <div class="sheet-scroll" id="examSheetHost"></div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ============================ 결과 화면 ============================ -->
+<section class="screen" id="screenResult">
+  <div class="result" id="resultRoot"></div>
+</section>
+
+<!-- ============================ 공용 모달 ============================ -->
+<div class="modal" id="modal" aria-hidden="true">
+  <div class="modal__box" role="dialog" aria-modal="true">
+    <h3 class="modal__title" id="modalTitle"></h3>
+    <div class="modal__body" id="modalBody"></div>
+    <div class="modal__foot" id="modalFoot"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<!-- 모든 화면에서 쓰는 전체화면 전환 버튼 -->
+<button class="fsbtn" id="btnFullscreen" type="button" aria-label="전체화면 전환" hidden>
+  <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
+    <path class="fsbtn__expand" d="M9 3H4.5A1.5 1.5 0 0 0 3 4.5V9M15 3h4.5A1.5 1.5 0 0 1 21 4.5V9M9 21H4.5A1.5 1.5 0 0 1 3 19.5V15M15 21h4.5a1.5 1.5 0 0 0 1.5-1.5V15"
+      fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path class="fsbtn__collapse" d="M4 9V6a2 2 0 0 1 2-2h3M20 9V6a2 2 0 0 0-2-2h-3M4 15v3a2 2 0 0 0 2 2h3M20 15v3a2 2 0 0 1-2 2h-3"
+      fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+</button>
+
+<script src="vendor/katex/katex.min.js"></script>
+<script src="vendor/katex/contrib/auto-render.min.js"></script>
+<!-- Firebase(중복 응시 확인·결과 저장용). js/remote.js 의 FIREBASE_CONFIG 를
+     채우기 전에는 로드는 되어도 아무 동작도 하지 않는다. -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="js/remote.js"></script>
+<script src="js/config.js"></script>
+<script src="js/questions.js"></script>
+<script src="js/questions.enc.js"></script>
+<script src="js/util.js"></script>
+<script src="js/store.js"></script>
+<script src="js/ink.js"></script>
+<script src="js/omr.js"></script>
+<script src="js/exam.js"></script>
+<script src="js/result.js"></script>
+<script src="js/app.js"></script>
+<!-- 접속 잠금: 비밀번호로 문항 데이터를 복호화한 뒤에야 App.boot() 을 호출한다 -->
+<script src="js/gate.js"></script>
+</body>
+</html>

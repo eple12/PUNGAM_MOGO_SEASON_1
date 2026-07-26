@@ -1,0 +1,214 @@
+/* =====================================================================
+ * 시험 화면 — 상단 바 · 문제지 · 필기 · OMR 탭
+ * ===================================================================== */
+
+/* position:relative 로 두어야 화면 밖으로 걸친 OMR 탭이 여기서 잘린다 */
+#screenExam.is-active{position:relative;display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+
+/* ---------------- 상단 바 ---------------- */
+.topbar{
+  flex:none;display:flex;align-items:center;justify-content:space-between;gap:16px;
+  height:58px;padding:0 18px 0 20px;background:#fff;border-bottom:1px solid var(--line);
+  position:relative;z-index:40;
+}
+.topbar__group{display:flex;align-items:center;gap:10px}
+.topbar__group--left{flex:1;min-width:0}
+.topbar__group--right{flex:1;justify-content:flex-end}
+
+.clock{display:flex;align-items:baseline;gap:9px}
+.clock__label{font-size:11.5px;color:var(--ink-3);letter-spacing:.04em}
+.clock__time{
+  font-size:24px;font-weight:700;letter-spacing:-.02em;color:var(--navy);
+  font-variant-numeric:tabular-nums;
+}
+.clock.is-warn .clock__time{color:var(--danger)}
+
+.navbtn{
+  width:38px;height:36px;border:1px solid var(--line-2);background:#fff;border-radius:8px;
+  font-size:13px;color:var(--ink-2);cursor:pointer;touch-action:manipulation;
+}
+.navbtn:disabled{opacity:.3}
+.qpick{
+  min-width:104px;height:36px;border:1px solid var(--line-2);border-radius:8px;background:#fff;
+  display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;
+  touch-action:manipulation;
+}
+.qpick__no{
+  font-size:17px;font-weight:700;color:var(--navy);position:relative;padding-right:9px;
+  font-variant-numeric:tabular-nums;
+}
+.qpick__no::after{
+  content:'';position:absolute;right:0;top:4px;width:5px;height:5px;border-radius:50%;
+  background:var(--line-2);
+}
+.qpick__no.is-marked::after{background:var(--ok)}
+.qpick__of{font-size:12.5px;color:var(--ink-3)}
+
+.tools{display:flex;border:1px solid var(--line-2);border-radius:8px;overflow:hidden}
+.tool{
+  border:none;background:#fff;padding:0 13px;height:36px;font-size:13px;color:var(--ink-3);
+  cursor:pointer;border-left:1px solid var(--line);touch-action:manipulation;white-space:nowrap;
+}
+.tool:first-child{border-left:none}
+.tool.is-on{background:var(--navy);color:#fff;font-weight:600}
+.tool--sep{border-left:1px solid var(--line-2)}
+
+/* ---------------- 문항 목록 ---------------- */
+.qlist{
+  position:absolute;top:58px;left:50%;transform:translateX(-50%);
+  z-index:45;width:min(760px,calc(100% - 24px));
+  background:#fff;border:1px solid var(--line);border-radius:0 0 12px 12px;
+  box-shadow:0 18px 40px rgba(16,24,40,.14);padding:16px 18px 14px;
+}
+.qlist__head{
+  display:flex;align-items:center;justify-content:space-between;
+  font-size:13px;color:var(--ink-3);margin-bottom:12px;
+}
+.qlist__grid{display:grid;grid-template-columns:repeat(10,1fr);gap:7px}
+.qchip{
+  position:relative;height:44px;border:1px solid var(--line-2);border-radius:7px;background:#fff;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  cursor:pointer;touch-action:manipulation;
+}
+.qchip__no{font-size:15px;font-weight:600;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.qchip__pt{font-size:10px;color:var(--ink-3)}
+.qchip.is-done{background:#EAF4EF;border-color:#BEDCCD}
+.qchip.is-done .qchip__no{color:var(--ok)}
+.qchip.is-cur{border-color:var(--navy);box-shadow:inset 0 0 0 1px var(--navy)}
+.qchip.is-cur .qchip__no{color:var(--navy)}
+.qlist__legend{display:flex;gap:16px;margin-top:12px;font-size:11.5px;color:var(--ink-3)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.dot--done{background:#BEDCCD}
+.dot--todo{background:var(--line-2)}
+.dot--cur{background:var(--navy)}
+
+/* ---------------- 문제지 ---------------- */
+.exam-body{
+  flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;
+  background:var(--bg);padding:18px 0 0;
+}
+.exam-body::-webkit-scrollbar{width:8px}
+.exam-body::-webkit-scrollbar-thumb{background:#C9CFD8;border-radius:99px}
+
+.paper{
+  position:relative;max-width:1080px;margin:0 auto;
+  background:#fff;border:1px solid var(--line);border-radius:12px 12px 0 0;
+  /* 문제지를 통째로 드래그해 복사해 가기 어렵도록 텍스트 선택을 막는다 */
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+}
+.paper__inner{padding:30px 40px 0}
+
+.ink{
+  position:absolute;left:0;top:0;
+  touch-action:none;-webkit-touch-callout:none;user-select:none;
+  cursor:crosshair;
+}
+.paper.is-erasing .ink{cursor:cell}
+
+.qmeta{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  background:#F1F3F6;border:1px solid #E1E5EB;border-radius:6px;
+  padding:9px 14px;margin-bottom:22px;
+}
+.qmeta__author{font-size:13.5px;font-weight:600;color:var(--ink-2);letter-spacing:-.01em}
+.qmeta__pt{font-size:12.5px;color:var(--ink-3)}
+
+.qtext{font-size:17.5px;line-height:2.0;color:var(--ink);letter-spacing:-.012em;word-break:keep-all}
+.qnum{font-weight:700;margin-right:2px}
+.qp{margin:0 0 16px}
+.qp--numonly{margin-bottom:6px}
+.qdisplay{margin:18px 0 20px;overflow-x:auto;overflow-y:hidden}
+.qdisplay .katex-display{margin:0}
+.qchoice{margin:22px 0 12px;line-height:2.3}
+
+.qbox{
+  border:1px solid var(--line-2);border-radius:4px;padding:14px 18px 15px;
+  margin:16px auto 18px;max-width:640px;background:#FCFCFD;
+}
+.qbox__hd{text-align:center;font-weight:700;font-size:15px;margin-bottom:8px;letter-spacing:-.01em}
+.qbox__item{font-size:16.5px;line-height:1.95}
+
+.workline{
+  display:flex;align-items:center;gap:12px;margin:34px 0 0;
+  font-size:11.5px;color:#C2C8D0;letter-spacing:.04em;
+}
+.workline::before,.workline::after{content:'';flex:1;height:1px;background:#EAEDF1}
+
+.scrollhint{
+  position:absolute;left:50%;bottom:14px;transform:translateX(-50%);
+  z-index:30;font-size:12px;color:var(--ink-3);background:rgba(255,255,255,.92);
+  border:1px solid var(--line);border-radius:999px;padding:7px 16px;pointer-events:none;
+  transition:opacity .3s;box-shadow:0 4px 14px rgba(16,24,40,.06);
+}
+.scrollhint.is-off{opacity:0}
+
+/* 열람 전용 */
+#screenExam.is-review .tools,
+#screenExam.is-review .scrollhint{display:none}
+
+/* ---------------- OMR 귀퉁이 탭 ---------------- */
+.omr-tab{
+  position:absolute;top:76px;right:0;z-index:50;
+  width:78px;height:98px;padding:0 0 0 8px;
+  background:linear-gradient(180deg,var(--omr-paper) 0%,var(--omr-paper-2) 100%);
+  border:2px solid var(--omr-ink);border-right:none;border-radius:12px 0 0 12px;
+  transform:translateX(34px);
+  box-shadow:-6px 6px 18px rgba(20,20,30,.16);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  cursor:pointer;touch-action:manipulation;
+  transition:transform .18s ease;
+}
+.omr-tab:hover,.omr-tab:active{transform:translateX(6px)}
+.omr-tab::before{
+  content:'';position:absolute;left:7px;top:10px;bottom:10px;width:2px;
+  border-left:2px dashed var(--omr-ink-2);
+}
+.omr-tab__word{
+  font-size:16px;font-weight:800;letter-spacing:.06em;color:var(--omr-ink);
+}
+.omr-tab__sub{font-size:11px;font-weight:600;color:var(--omr-ink);letter-spacing:.02em}
+
+/* ---------------- OMR 오버레이 ---------------- */
+.omr-overlay{
+  position:fixed;inset:0;z-index:120;pointer-events:none;
+}
+.omr-overlay.is-open{pointer-events:auto;background:rgba(16,22,32,.34)}
+.omr-overlay__panel{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  background:var(--omr-paper);
+  transform:translateX(101%);transition:transform .32s cubic-bezier(.22,.7,.25,1);
+  box-shadow:-20px 0 50px rgba(0,0,0,.22);
+}
+.omr-overlay.is-open .omr-overlay__panel{transform:translateX(0)}
+
+.omr-overlay__bar{
+  flex:none;display:flex;align-items:center;justify-content:space-between;gap:14px;
+  height:56px;padding:0 18px;background:#fff;border-bottom:2px solid var(--omr-ink);
+}
+.omr-overlay__title{display:flex;align-items:baseline;gap:10px;min-width:0}
+.omr-overlay__name{font-size:16px;font-weight:700;color:var(--omr-ink);letter-spacing:-.01em}
+.omr-overlay__who{font-size:13px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.omr-overlay__tools{display:flex;align-items:center;gap:8px}
+.omr-overlay__toolLabel{font-size:11.5px;color:var(--ink-3);margin-right:2px}
+.omrtool{
+  height:34px;padding:0 13px;border:1px solid var(--line-2);border-radius:7px;background:#fff;
+  font-size:13px;color:var(--ink-3);cursor:pointer;touch-action:manipulation;white-space:nowrap;
+}
+.omrtool.is-on{background:var(--omr-mark);border-color:var(--omr-mark);color:#fff;font-weight:600}
+#omrToolWhite.is-on{background:#fff;border-color:var(--omr-ink);color:var(--omr-ink)}
+.omr-overlay__clock{
+  font-size:16px;font-weight:700;color:var(--navy);font-variant-numeric:tabular-nums;
+  margin:0 4px 0 8px;
+}
+.omr-overlay .sheet-scroll{flex:1;min-height:0}
+
+@media (max-width:900px){
+  .topbar{height:54px;padding:0 12px}
+  .clock__label{display:none}
+  .clock__time{font-size:20px}
+  .tool{padding:0 9px;font-size:12px}
+  .paper__inner{padding:24px 22px 0}
+  .qtext{font-size:16.5px;line-height:1.95}
+  .qlist__grid{grid-template-columns:repeat(6,1fr)}
+  .omr-overlay__toolLabel,.omr-overlay__who{display:none}
+}

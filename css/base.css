@@ -1,0 +1,151 @@
+/* =====================================================================
+ * 공통 기반 — 색·글꼴·버튼·모달
+ * ===================================================================== */
+
+:root{
+  --bg:#EEF0F4;
+  --paper:#FFFFFF;
+  --ink:#171A1F;
+  --ink-2:#454C55;
+  --ink-3:#7B848F;
+  --line:#DDE1E7;
+  --line-2:#C7CCD4;
+  --navy:#16304F;
+  --navy-2:#22456E;
+  --navy-soft:#EDF1F7;
+  --danger:#98262B;
+  --ok:#1D6349;
+  --gold:#C9962C;
+
+  --omr-paper:#FAF6D3;
+  --omr-paper-2:#F5F0C4;
+  --omr-ink:#E1226C;
+  --omr-ink-2:#EE86AE;
+  --omr-soft:#FADCE7;
+  --omr-mark:#16181C;
+
+  --font:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic','Segoe UI',Roboto,sans-serif;
+  /* 평가원 문제지 제목 계열(함초롬바탕 → 바탕 → 기기별 명조) */
+  --font-exam:'HCR Batang','함초롬바탕','HCR Batang LVT',Batang,'바탕','Noto Serif KR','Noto Serif CJK KR','Nanum Myeongjo','Apple SD Gothic Neo',serif;
+  --radius:10px;
+  --shadow:0 1px 2px rgba(16,24,40,.05),0 8px 24px rgba(16,24,40,.06);
+}
+
+*,*::before,*::after{box-sizing:border-box}
+/* html 에도 배경을 깔아 둔다. 전체화면 진입 순간 body 가 아직 페인트되기 전
+   프레임에 html 배경(기본 흰색/투명)이 잠깐 비쳐 화면이 검게 번쩍이는 현상이 있었다. */
+html,body{height:100%;background:var(--bg)}
+:fullscreen,:-webkit-full-screen{background:var(--bg)}
+body{
+  margin:0;
+  font-family:var(--font);
+  color:var(--ink);
+  background:var(--bg);
+  -webkit-text-size-adjust:100%;
+  -webkit-tap-highlight-color:transparent;
+  overscroll-behavior:none;
+  /* 한글 문장이 단어 중간에서 어색하게 줄바꿈되지 않도록 어절 단위로 줄바꿈한다.
+     문제 본문(.qtext)은 이미 같은 값을 직접 지정해 두었으므로 영향 없음. */
+  word-break:keep-all;overflow-wrap:break-word;
+}
+button,input{font-family:inherit;font-size:inherit;color:inherit}
+b,strong{font-weight:700}
+
+.screen{display:none;min-height:100dvh}
+.screen.is-active{display:block}
+
+/* KaTeX 안의 한글이 깨지지 않도록 대체 글꼴을 붙인다 */
+.katex .text,.katex .mord.text{font-family:KaTeX_Main,var(--font)}
+.katex{font-size:1.06em}
+
+/* ---------------- 버튼 ---------------- */
+.btn{
+  appearance:none;border:1px solid transparent;background:transparent;
+  padding:11px 18px;border-radius:8px;font-size:15px;font-weight:600;white-space:nowrap;
+  letter-spacing:-.01em;cursor:pointer;transition:background .15s,border-color .15s,color .15s,transform .06s;
+  touch-action:manipulation;
+}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn--primary{background:var(--navy);color:#fff}
+.btn--primary:hover{background:var(--navy-2)}
+.btn--outline{border-color:var(--line-2);background:#fff;color:var(--ink-2)}
+.btn--outline:hover{border-color:var(--navy);color:var(--navy)}
+.btn--ghost{background:var(--navy-soft);color:var(--navy)}
+.btn--text{background:none;color:var(--ink-3);padding:11px 10px}
+.btn--text:hover{color:var(--ink)}
+.btn--danger{background:var(--danger);color:#fff}
+.btn--sm{padding:8px 13px;font-size:13.5px;border-radius:7px}
+.btn--xl{padding:16px 54px;font-size:17px;border-radius:10px}
+
+/* ---------------- 모달 ---------------- */
+.modal{
+  position:fixed;inset:0;z-index:200;display:none;
+  align-items:center;justify-content:center;padding:24px;
+  background:rgba(15,22,34,.44);backdrop-filter:blur(2px);
+}
+.modal.is-open{display:flex}
+.modal__box{
+  width:min(440px,100%);background:#fff;border-radius:14px;padding:26px 26px 18px;
+  box-shadow:0 24px 60px rgba(10,18,30,.28);
+}
+.modal__title{margin:0 0 12px;font-size:19px;font-weight:700;letter-spacing:-.02em}
+.modal__body{font-size:14.5px;line-height:1.72;color:var(--ink-2)}
+.modal__body p{margin:0 0 8px}
+.modal__body .mline{font-size:16px;color:var(--ink)}
+.modal__body .mwarn{color:var(--danger);font-weight:600}
+.modal__body .mok{color:var(--ok);font-weight:600}
+.modal__foot{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+
+/* ---------------- 전체화면 버튼(모든 화면 공통) ---------------- */
+.fsbtn{
+  position:fixed;left:12px;bottom:12px;z-index:130;
+  width:38px;height:38px;border-radius:50%;
+  border:1px solid var(--line-2);background:rgba(255,255,255,.92);color:var(--ink-2);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  box-shadow:0 2px 10px rgba(16,24,40,.12);touch-action:manipulation;
+  transition:background .12s,color .12s,border-color .12s;
+}
+.fsbtn:hover{border-color:var(--navy);color:var(--navy)}
+.fsbtn:active{transform:translateY(1px)}
+.fsbtn__collapse{display:none}
+.fsbtn.is-full .fsbtn__expand{display:none}
+.fsbtn.is-full .fsbtn__collapse{display:block}
+
+/* ---------------- 토스트 ---------------- */
+.toast{
+  position:fixed;left:50%;bottom:34px;transform:translate(-50%,14px);
+  z-index:300;background:rgba(20,26,36,.94);color:#fff;
+  padding:13px 22px;border-radius:999px;font-size:14.5px;font-weight:500;
+  opacity:0;transition:opacity .22s,transform .22s;pointer-events:none;
+  box-shadow:0 10px 30px rgba(0,0,0,.2);
+}
+.toast.is-on{opacity:1;transform:translate(-50%,0)}
+
+/* ---------------- 점수 분포 그래프(막대) ---------------- */
+.scorechart-host{margin-top:4px}
+.scorechart__bars{
+  display:flex;align-items:flex-end;gap:3px;height:160px;
+  padding:0 2px;overflow-x:auto;
+}
+.scorechart__bar{
+  flex:1 0 4px;min-width:4px;max-width:34px;border-radius:3px 3px 0 0;
+  background:var(--line-2);
+}
+.scorechart__bar.is-mine{background:var(--gold, #C9962C)}
+.scorechart__axis{
+  display:flex;gap:3px;padding:0 2px;margin-top:4px;
+}
+.scorechart__tick{
+  flex:1 0 4px;min-width:4px;max-width:34px;
+  text-align:center;font-size:10.5px;color:var(--ink-3);white-space:nowrap;
+}
+.scorechart__rank{margin:12px 0 0;font-size:14.5px;color:var(--ink-2);text-align:center}
+.scorechart__rank b{color:var(--navy);font-weight:800}
+.scorechart__empty{margin:0;padding:30px 0;text-align:center;font-size:13.5px;color:var(--ink-3)}
+
+/* ---------------- 답안지 스크롤 영역 ---------------- */
+.sheet-scroll{
+  overflow:auto;-webkit-overflow-scrolling:touch;
+  padding:20px 20px 44px;
+}

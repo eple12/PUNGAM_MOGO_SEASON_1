@@ -20,9 +20,13 @@ function createInk(canvas) {
   let strokes = [];
   let cur = null;
   let lastP = 0.5;
-  let lastEnd = null;         // 직전에 끝난 획의 끝점(x,y,t) — 이어 그리기 병합 판정용
-  const RESUME_MS = 180;      // 이 시간 안에
-  const RESUME_R = 16;        // 이 거리 안에서 다시 시작하면 새 획이 아니라 이어 그리기로 본다
+  let lastEnd = null;         // 직전에 끝난 획의 끝점(x,y,t,cancel 여부) — 이어 그리기 병합 판정용
+  // pointercancel(사용자 의도가 아닌, 브라우저/OS 가 강제로 끊은 경우)로 끊긴 직후에만
+  // 적용되므로, 의도적으로 뗐다 다시 찍는 정상 필기(점 찍기 등)를 오인해 잘못 이어붙일
+  // 걱정 없이 넉넉하게 잡는다 — 빠르게 휙 긋는 동안 취소~재접촉 사이 펜이 꽤 멀리
+  // 이동해 있을 수 있기 때문.
+  const RESUME_MS = 450;
+  const RESUME_R = 140;
 
   /* ---------- 기본 도형 ---------- */
   const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
@@ -105,7 +109,8 @@ function createInk(canvas) {
     // 접촉 판정 버그). 방금 끝난 획의 끝점과 아주 가깝고 아주 가까운 시간 안에
     // 새 획이 시작되면, 새 획으로 취급하지 않고 직전 획에 이어 붙여 하나의
     // 매끄러운 획으로 만든다.
-    if (lastEnd && performance.now() - lastEnd.t < RESUME_MS &&
+    if (lastEnd && lastEnd.cancel &&
+        performance.now() - lastEnd.t < RESUME_MS &&
         Math.hypot(x - lastEnd.x, y - lastEnd.y) < RESUME_R &&
         strokes.length && strokes[strokes.length - 1] === lastEnd.stroke) {
       cur = strokes.pop();
@@ -140,7 +145,7 @@ function createInk(canvas) {
     }
   }
 
-  function end() {
+  function end(viaCancel) {
     if (!cur) return false;
     const p = cur.p, n = p.length;
     if (n >= 2) {
@@ -151,7 +156,7 @@ function createInk(canvas) {
     cur.p = p.map(q => [Math.round(q[0] * 10) / 10, Math.round(q[1] * 10) / 10, Math.round(q[2] * 100) / 100]);
     strokes.push(cur);
     const last = cur.p[cur.p.length - 1];
-    lastEnd = { x: last[0], y: last[1], t: performance.now(), stroke: cur };
+    lastEnd = { x: last[0], y: last[1], t: performance.now(), stroke: cur, cancel: !!viaCancel };
     cur = null;
     return true;
   }

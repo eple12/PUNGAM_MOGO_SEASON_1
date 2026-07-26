@@ -130,6 +130,7 @@ const Exam = (() => {
     let drawId = null;
     let sc = null;                  // 스크롤 상태
     let flingId = 0;
+    let lastTs = -1;                // 마지막으로 반영한 좌표의 timeStamp (역순 이벤트 방지)
 
     const canDraw = e => e.pointerType === 'pen' || e.pointerType === 'mouse' || (S.fingerDraw && e.pointerType === 'touch');
     const avgY = () => {
@@ -183,6 +184,7 @@ const Exam = (() => {
       if (canDraw(e)) {
         if (reviewMode) { beginScroll(); return; }
         const [x, y] = pt(e);
+        lastTs = e.timeStamp;
         if (tool === 'eraser') { act = 'erase'; ink.eraseAt(x, y); }
         else { act = 'draw'; ink.begin(x, y, e.pressure || 0.5); }
         drawId = e.pointerId;
@@ -210,7 +212,15 @@ const Exam = (() => {
       }
       if (e.pointerId !== drawId) return;
 
-      const list = coalesced(e);
+      // iOS Safari 는 getCoalescedEvents() 가 간혹 시간 역순/중복된 좌표를 섞어
+      // 내려보낸다. 이를 그대로 그리면 아직 안 그려진 뒷부분으로 잠깐 직선으로
+      // 튀었다가 실제 좌표들이 뒤따라와 다시 채워지면서, 빠른 획 하나가 두 갈래로
+      // 갈라졌다 합쳐지는 것처럼 보인다. timeStamp 가 역행하는 좌표는 버린다.
+      const list = coalesced(e).filter(ev => {
+        if (ev.timeStamp <= lastTs) return false;
+        lastTs = ev.timeStamp;
+        return true;
+      });
       if (act === 'draw') {
         list.forEach(ev => { const [x, y] = pt(ev); ink.extend(x, y, ev.pressure || 0.5); });
       } else if (act === 'erase') {
@@ -222,7 +232,7 @@ const Exam = (() => {
     function finish(e) {
       pointers.delete(e.pointerId);
       if (act === 'draw' && e.pointerId === drawId) {
-        if (ink.end()) { saveStrokes(); Store.save(); }
+        if (ink.end(e.type === 'pointercancel')) { saveStrokes(); Store.save(); }
         drawId = null;
       }
       if (act === 'erase' && e.pointerId === drawId) { saveStrokes(); Store.save(); drawId = null; }

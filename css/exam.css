@@ -142,6 +142,9 @@
   z-index:30;font-size:12px;color:var(--ink-3);background:rgba(255,255,255,.92);
   border:1px solid var(--line);border-radius:999px;padding:7px 16px;pointer-events:none;
   transition:opacity .3s;box-shadow:0 4px 14px rgba(16,24,40,.06);
+  /* pointer-events:none 만으로는 iPadOS 가 이 텍스트를 여전히 선택/드래그
+     대상으로 인식하는 경우가 있어 명시적으로 한 번 더 막는다 */
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none;
 }
 .scrollhint.is-off{opacity:0}
 

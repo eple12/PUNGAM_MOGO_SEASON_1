@@ -62,8 +62,17 @@ const U = (() => {
       out += '<p class="' + (isChoice ? 'qchoice' : 'qp') + '">' + inner + '</p>';
     });
 
-    return out;
+    return out.split('⟦REDACT⟧').join(REDACT_TAPE_HTML);
   }
+
+  /* 이름 등을 가린 자리에 넣는 '검은 테이프' 연출 (글리치 + 전광판 마퀴) */
+  const REDACT_TAPE_HTML =
+    '<span class="redact-tape" aria-label="가려짐">' +
+      '<span class="redact-tape__track">' +
+        '<span class="redact-tape__seg">[REDACTED]</span>' +
+        '<span class="redact-tape__seg">[REDACTED]</span>' +
+      '</span>' +
+    '</span>';
 
   /* KaTeX 렌더링 */
   function typeset(node) {

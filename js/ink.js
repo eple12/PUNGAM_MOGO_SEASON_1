@@ -123,8 +123,9 @@ function createInk(canvas) {
     }
   }
 
+  // 성공 시 방금 확정한 획 객체를 돌려준다(호출부가 undoIfLast 로 되돌릴 수 있도록).
   function end() {
-    if (!cur) return false;
+    if (!cur) return null;
     const p = cur.p, n = p.length;
     if (n >= 2) {
       styleUp();
@@ -133,14 +134,27 @@ function createInk(canvas) {
     // 좌표를 소수 첫째 자리로 줄여 저장 용량을 아낀다
     cur.p = p.map(q => [Math.round(q[0] * 10) / 10, Math.round(q[1] * 10) / 10, Math.round(q[2] * 100) / 100]);
     strokes.push(cur);
+    const s = cur;
     cur = null;
-    return true;
+    return s;
   }
 
   function cancel() {
     if (!cur) return;
     cur = null;
     redraw();
+  }
+
+  // 방금 end() 로 확정한 획이 여전히 맨 마지막 획일 때만 취소한다(애플펜슬이
+  // 한 번의 접촉에 포인터를 중복으로 쏘아, 짧고 엉뚱한 직선 획이 진짜 획과
+  // 거의 동시에 따로 생기는 경우를 걷어내기 위함).
+  function undoIfLast(strokeRef) {
+    if (strokes.length && strokes[strokes.length - 1] === strokeRef) {
+      strokes.pop();
+      redraw();
+      return true;
+    }
+    return false;
   }
 
   /* ---------- 획 지우개 ---------- */
@@ -203,5 +217,5 @@ function createInk(canvas) {
     setSize(w, h);
   }
 
-  return { setSize, resizeTo, begin, extend, end, cancel, eraseAt, load, dump, clear, redraw, count, size };
+  return { setSize, resizeTo, begin, extend, end, cancel, undoIfLast, eraseAt, load, dump, clear, redraw, count, size };
 }

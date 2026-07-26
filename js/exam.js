@@ -132,6 +132,14 @@ const Exam = (() => {
     let flingId = 0;
     let lastTs = -1;                // 마지막으로 반영한 좌표의 timeStamp (역순 이벤트 방지)
 
+    // 애플펜슬 접촉 한 번에 포인터 스트림이 두 번(즉시 끝났다 곧바로 다시 시작) 잡히는
+    // 경우를 걸러내기 위한 유예 상태. 방금 끝난 획을 바로 확정하지 않고 아주 짧게
+    // 들고 있다가, 그 사이 새 펜 입력이 들어오면 방금 끝난 획은 중복 아티팩트로 보고
+    // 버린다. 사람이 의도적으로 다시 찍는 필기(점 찍기 등)는 이 시간보다 훨씬 느리다.
+    let pendingStroke = null;
+    let pendingTimer = 0;
+    const DUP_MS = 45;
+
     const canDraw = e => e.pointerType === 'pen' || e.pointerType === 'mouse' || (S.fingerDraw && e.pointerType === 'touch');
     const avgY = () => {
       let s = 0; pointers.forEach(p => s += p.y); return s / pointers.size;
@@ -183,6 +191,11 @@ const Exam = (() => {
 
       if (canDraw(e)) {
         if (reviewMode) { beginScroll(); return; }
+        if (pendingStroke) {
+          clearTimeout(pendingTimer);
+          ink.undoIfLast(pendingStroke);
+          pendingStroke = null;
+        }
         const [x, y] = pt(e);
         lastTs = e.timeStamp;
         if (tool === 'eraser') { act = 'erase'; ink.eraseAt(x, y); }
@@ -239,7 +252,17 @@ const Exam = (() => {
     function finish(e) {
       pointers.delete(e.pointerId);
       if (act === 'draw' && e.pointerId === drawId) {
-        if (ink.end()) { saveStrokes(); Store.save(); }
+        const s = ink.end();
+        if (s) {
+          // 바로 확정하지 않고 DUP_MS 만큼 들고 있는다. 그 사이 새 펜 입력이
+          // 오면(pointerdown 핸들러) 이 획은 중복 아티팩트로 보고 버려진다.
+          clearTimeout(pendingTimer);
+          pendingStroke = s;
+          pendingTimer = setTimeout(() => {
+            pendingStroke = null;
+            saveStrokes(); Store.save();
+          }, DUP_MS);
+        }
         drawId = null;
       }
       if (act === 'erase' && e.pointerId === drawId) { saveStrokes(); Store.save(); drawId = null; }

@@ -96,7 +96,10 @@
   /* 문제지를 통째로 드래그해 복사해 가기 어렵도록 텍스트 선택을 막는다 */
   user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
 }
-.paper__inner{padding:30px 40px 0}
+/* 애플펜슬 입력이 캔버스가 아니라 이 아래 텍스트로 흘러들어가 씹히거나
+   iPadOS 가 텍스트를 선택해버리는 것을 막기 위해 포인터 대상에서 제외한다.
+   모든 필기/지우개 입력은 위에 겹쳐진 .ink 캔버스가 전담한다. */
+.paper__inner{padding:30px 40px 0;pointer-events:none}
 
 .ink{
   position:absolute;left:0;top:0;

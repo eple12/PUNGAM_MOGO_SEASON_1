@@ -20,6 +20,9 @@ function createInk(canvas) {
   let strokes = [];
   let cur = null;
   let lastP = 0.5;
+  let lastEnd = null;         // 직전에 끝난 획의 끝점(x,y,t) — 이어 그리기 병합 판정용
+  const RESUME_MS = 180;      // 이 시간 안에
+  const RESUME_R = 16;        // 이 거리 안에서 다시 시작하면 새 획이 아니라 이어 그리기로 본다
 
   /* ---------- 기본 도형 ---------- */
   const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
@@ -97,6 +100,20 @@ function createInk(canvas) {
 
   /* ---------- 입력 ---------- */
   function begin(x, y, pressure) {
+    // 빠르게 휙 긋는 획 초반에 iPadOS/WebKit 이 애플펜슬 포인터를 순간적으로
+    // pointercancel 시켰다가 곧바로 다시 내리찍는 경우가 있다(하드웨어/OS 단
+    // 접촉 판정 버그). 방금 끝난 획의 끝점과 아주 가깝고 아주 가까운 시간 안에
+    // 새 획이 시작되면, 새 획으로 취급하지 않고 직전 획에 이어 붙여 하나의
+    // 매끄러운 획으로 만든다.
+    if (lastEnd && performance.now() - lastEnd.t < RESUME_MS &&
+        Math.hypot(x - lastEnd.x, y - lastEnd.y) < RESUME_R &&
+        strokes.length && strokes[strokes.length - 1] === lastEnd.stroke) {
+      cur = strokes.pop();
+      lastEnd = null;
+      extend(x, y, pressure);
+      return;
+    }
+    lastEnd = null;
     lastP = pressure;
     cur = { p: [[x, y, pressure]], b: [x, y, x, y] };
     styleUp();
@@ -133,11 +150,14 @@ function createInk(canvas) {
     // 좌표를 소수 첫째 자리로 줄여 저장 용량을 아낀다
     cur.p = p.map(q => [Math.round(q[0] * 10) / 10, Math.round(q[1] * 10) / 10, Math.round(q[2] * 100) / 100]);
     strokes.push(cur);
+    const last = cur.p[cur.p.length - 1];
+    lastEnd = { x: last[0], y: last[1], t: performance.now(), stroke: cur };
     cur = null;
     return true;
   }
 
   function cancel() {
+    lastEnd = null;
     if (!cur) return;
     cur = null;
     redraw();
@@ -180,10 +200,11 @@ function createInk(canvas) {
         [Infinity, Infinity, -Infinity, -Infinity])
     }));
     cur = null;
+    lastEnd = null;
     redraw();
   }
   function dump() { return strokes; }
-  function clear() { strokes = []; cur = null; redraw(); }
+  function clear() { strokes = []; cur = null; lastEnd = null; redraw(); }
   function count() { return strokes.length; }
   function size() { return { w: W, h: H }; }
 

@@ -216,7 +216,14 @@ const Exam = (() => {
       // 내려보낸다. 이를 그대로 그리면 아직 안 그려진 뒷부분으로 잠깐 직선으로
       // 튀었다가 실제 좌표들이 뒤따라와 다시 채워지면서, 빠른 획 하나가 두 갈래로
       // 갈라졌다 합쳐지는 것처럼 보인다. timeStamp 가 역행하는 좌표는 버린다.
+      //
+      // 애플펜슬은 화면에 닿기 전 "호버" 상태에서도 pointermove 를 보낼 수 있고
+      // 이때 pressure 는 항상 정확히 0 이다. 접촉 직후 첫 pointermove 의 coalesced
+      // 배치에 이 호버 시점 잔여 좌표(압력 0)가 섞여 들어오는 경우가 있는데, 이게
+      // 획 시작점에서 엉뚱한 곳으로 튀는 직선 가지의 정체다. 실제로 펜이 눌린 채
+      // 그리는 중에는 pressure 가 정확히 0일 수 없으므로 그런 좌표는 버린다.
       const list = coalesced(e).filter(ev => {
+        if (ev.pointerType === 'pen' && ev.pressure === 0) return false;
         if (ev.timeStamp <= lastTs) return false;
         lastTs = ev.timeStamp;
         return true;
@@ -232,7 +239,7 @@ const Exam = (() => {
     function finish(e) {
       pointers.delete(e.pointerId);
       if (act === 'draw' && e.pointerId === drawId) {
-        if (ink.end(e.type === 'pointercancel')) { saveStrokes(); Store.save(); }
+        if (ink.end()) { saveStrokes(); Store.save(); }
         drawId = null;
       }
       if (act === 'erase' && e.pointerId === drawId) { saveStrokes(); Store.save(); drawId = null; }

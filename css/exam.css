@@ -127,7 +127,7 @@
 /* 이름을 가린 자리 — 검은 테이프 + 글리치 + 전광판 마퀴 */
 .redact-tape{
   position:relative;display:inline-block;overflow:hidden;
-  width:5.2em;height:1.4em;vertical-align:-0.32em;
+  width:6.2em;height:1.85em;vertical-align:-0.5em;
   background:#0b0b0d;border-radius:2px;line-height:1;
   font-family:'Consolas','SF Mono','D2Coding','Courier New',ui-monospace,monospace;
   transform:rotate(-2.4deg);
@@ -136,7 +136,7 @@
 }
 .redact-tape::before,.redact-tape::after{
   content:'[REDACTED]';position:absolute;top:50%;left:6px;line-height:1;
-  transform:translateY(-50%);font-weight:800;font-size:.8em;letter-spacing:.03em;
+  transform:translateY(-50%);font-weight:800;font-size:1.05em;letter-spacing:.03em;
   white-space:nowrap;opacity:0;pointer-events:none;
 }
 .redact-tape::before{color:#ff2d55;animation:redactRgbL 2.6s infinite}
@@ -146,7 +146,7 @@
   transform:translateY(-50%);animation:redactMarquee 3.2s linear infinite;
 }
 .redact-tape__seg{
-  padding:0 .6em;font-weight:800;font-size:.84em;letter-spacing:.04em;line-height:1;
+  padding:0 .6em;font-weight:800;font-size:1.1em;letter-spacing:.04em;line-height:1;
   color:#fff;white-space:nowrap;
 }
 @keyframes redactMarquee{from{transform:translateY(-50%) translateX(0)}to{transform:translateY(-50%) translateX(-50%)}}

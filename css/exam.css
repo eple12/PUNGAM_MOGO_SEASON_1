@@ -162,6 +162,9 @@
   box-shadow:-6px 6px 18px rgba(20,20,30,.16);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
   cursor:pointer;touch-action:manipulation;
+  /* body 전역 user-select:none 상속만으로는 iOS 가 이 버튼 위 글자를 여전히
+     선택/드래그 대상으로 인식하는 경우가 있어 요소 자체에 한 번 더 명시한다 */
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
   transition:transform .18s ease;
 }
 .omr-tab:hover,.omr-tab:active{transform:translateX(6px)}

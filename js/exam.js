@@ -139,6 +139,7 @@ const Exam = (() => {
     let pendingStroke = null;
     let pendingTimer = 0;
     const DUP_MS = 45;
+    const DUP_R = 14;                // 이 거리보다 가까울 때만 "같은 접촉점" 중복으로 본다
 
     const canDraw = e => e.pointerType === 'pen' || e.pointerType === 'mouse' || (S.fingerDraw && e.pointerType === 'touch');
     const avgY = () => {
@@ -191,12 +192,18 @@ const Exam = (() => {
 
       if (canDraw(e)) {
         if (reviewMode) { beginScroll(); return; }
+        const [x, y] = pt(e);
         if (pendingStroke) {
-          clearTimeout(pendingTimer);
-          ink.undoIfLast(pendingStroke);
+          // 진짜 중복 아티팩트는 방금 그 자리(같은 접촉점)에서 다시 잡히므로 시작점과
+          // 아주 가까울 때만 버린다. 점선처럼 일부러 조금 떨어진 곳을 빠르게 연속으로
+          // 찍는 정상 필기까지 지워버리지 않기 위한 구분이다.
+          const p0 = pendingStroke.p[0];
+          if (Math.hypot(x - p0[0], y - p0[1]) < DUP_R) {
+            clearTimeout(pendingTimer);
+            ink.undoIfLast(pendingStroke);
+          }
           pendingStroke = null;
         }
-        const [x, y] = pt(e);
         lastTs = e.timeStamp;
         if (tool === 'eraser') { act = 'erase'; ink.eraseAt(x, y); }
         else { act = 'draw'; ink.begin(x, y, e.pressure || 0.5); }

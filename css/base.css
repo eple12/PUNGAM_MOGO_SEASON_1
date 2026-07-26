@@ -47,7 +47,13 @@ body{
   /* 한글 문장이 단어 중간에서 어색하게 줄바꿈되지 않도록 어절 단위로 줄바꿈한다.
      문제 본문(.qtext)은 이미 같은 값을 직접 지정해 두었으므로 영향 없음. */
   word-break:keep-all;overflow-wrap:break-word;
+  /* 애플펜슬/손가락이 필기 캔버스 주변 텍스트(문항, 필적 확인 문구 등)를
+     스치기만 해도 iPadOS 가 텍스트를 선택·드래그하려 드는 문제를 사이트
+     전체에서 원천 차단한다. 실제 입력이 필요한 input/textarea 는 아래에서
+     다시 풀어준다. */
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
 }
+input,textarea{user-select:text;-webkit-user-select:text}
 button,input{font-family:inherit;font-size:inherit;color:inherit}
 b,strong{font-weight:700}
 

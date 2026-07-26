@@ -159,14 +159,26 @@ const Exam = (() => {
 
     canvas.addEventListener('pointerdown', e => {
       if (reviewMode && tool === 'eraser') return;
-      stopFling();
-      pointers.set(e.pointerId, { y: e.clientY });
 
-      if (pointers.size >= 2) {
+      // 애플펜슬로 필기 중 손바닥이 화면에 닿아 생기는 touch 포인터를 걸러낸다.
+      // iPadOS Safari 는 안드로이드 S펜과 달리 펜 입력 중에도 손바닥 접촉을 그대로
+      // touch 포인터로 올려보내는데, 이를 그냥 두면 아래 2포인터 판정에 걸려
+      // 필기 중이던 획이 취소되고 스크롤로 전환돼 버린다("글씨가 드래그됨" 증상).
+      if (e.pointerType === 'touch' && !S.fingerDraw && (drawId !== null || act === 'draw' || act === 'erase')) {
+        e.preventDefault();
+        return;
+      }
+
+      stopFling();
+      pointers.set(e.pointerId, { y: e.clientY, type: e.pointerType });
+
+      const drawnByTouch = drawId !== null && pointers.get(drawId) && pointers.get(drawId).type === 'touch';
+      if (pointers.size >= 2 && (drawnByTouch || act !== 'draw')) {
         if (act === 'draw') { ink.cancel(); drawId = null; }
         beginScroll();
         return;
       }
+      if (pointers.size >= 2) return; // pen/mouse 필기 중 들어온 여분 포인터는 무시
 
       if (canDraw(e)) {
         if (reviewMode) { beginScroll(); return; }
@@ -183,7 +195,7 @@ const Exam = (() => {
 
     canvas.addEventListener('pointermove', e => {
       if (!pointers.has(e.pointerId)) return;
-      pointers.set(e.pointerId, { y: e.clientY });
+      pointers.set(e.pointerId, { y: e.clientY, type: pointers.get(e.pointerId).type });
 
       if (act === 'scroll' && sc) {
         const y = avgY();
@@ -220,7 +232,11 @@ const Exam = (() => {
     }
 
     canvas.addEventListener('pointerup', finish);
-    canvas.addEventListener('pointercancel', e => { if (act === 'draw') ink.cancel(); finish(e); });
+    // pointercancel 은 손바닥 접촉 등으로 WebKit 이 포인터 흐름을 가로챌 때도 발생한다.
+    // 여기서 ink.cancel() 로 통째로 버리면 지금까지 쓴 획이 사라져 다음 입력이 새 획으로
+    // 시작되면서 필기가 두 조각으로 끊겨 보인다. pointerup 과 동일하게 지금까지 그린
+    // 만큼은 저장해 끊김을 최소화한다.
+    canvas.addEventListener('pointercancel', finish);
     canvas.addEventListener('contextmenu', e => e.preventDefault());
 
     scroll.addEventListener('scroll', () => {

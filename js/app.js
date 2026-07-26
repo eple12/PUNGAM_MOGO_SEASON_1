@@ -243,7 +243,7 @@ const App = (() => {
     U.el('#btnSubmit').classList.remove('btn--outline');
     U.el('#btnSubmit').classList.add('btn--primary');
     screen('screenExam');
-    Exam.show(S.current || 1);
+    Exam.show(1);
   }
 
   function reviewSheet() {

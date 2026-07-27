@@ -20,107 +20,6 @@ const Exam = (() => {
   const IS_IPADOS = /iPad/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-  /* =====================================================================
-   * 임시 디버그 빌드 — 아이패드에서 필기가 자꾸 취소/분리된다는 제보를 받아
-   * 원인을 눈으로 보기 위해 만든 것. F12 를 쓸 수 없는 아이패드에서도 볼 수
-   * 있도록 화면 하단에 로그 패널을 직접 띄운다. 예뻐 보일 필요 없음.
-   * 이 블록과 아래 dbg(...)/DEBUG 분기들은 원인이 파악되면 통째로 지운다.
-   * ===================================================================== */
-  const DEBUG = IS_IPADOS || /(?:^|[?&])dbg=1\b/.test(location.search);
-  // 로그 맨 위에 이 값을 찍어서, 캐시된 옛날 스크립트로 테스트한 건 아닌지
-  // 로그만 보고 바로 확인할 수 있게 한다. 새 진단 코드를 추가할 때마다 올린다.
-  const BUILD_TAG = 'dbg-build-7(ts-relax,doc-capture,touchstart,scroll-toggle,capture-toggle)';
-  let DBG_NO_CAPTURE = false;   // 진단 토글: 켜지면 setPointerCapture() 자체를 안 부른다
-  let dbgLines = [];
-  let dbgEl = null;
-  let dbgT0 = performance.now();
-  function dbg(msg) {
-    if (!DEBUG) return;
-    const t = ((performance.now() - dbgT0) / 1000).toFixed(3);
-    dbgLines.push('[' + t + '] ' + msg);
-    if (dbgLines.length > 400) dbgLines.splice(0, dbgLines.length - 400);
-    if (dbgEl) {
-      dbgEl.textContent = dbgLines.join('\n');
-      dbgEl.scrollTop = dbgEl.scrollHeight;
-    }
-  }
-  function mountDebugPanel() {
-    if (!DEBUG || U.el('#dbgPanel')) return;
-    const wrap = document.createElement('div');
-    wrap.id = 'dbgWrap';
-    wrap.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;' +
-      'display:flex;flex-direction:column;font-family:ui-monospace,Menlo,Consolas,monospace;';
-    const panel = document.createElement('div');
-    panel.id = 'dbgPanel';
-    panel.style.cssText = 'max-height:38vh;overflow-y:auto;background:rgba(10,12,16,.94);' +
-      'color:#8CF28C;font-size:10.5px;line-height:1.45;padding:6px 8px;' +
-      'white-space:pre-wrap;word-break:break-all;';
-    const bar = document.createElement('div');
-    bar.style.cssText = 'display:flex;gap:1px;background:#000;';
-    const btn = (label) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.textContent = label;
-      b.style.cssText = 'flex:1;padding:10px 4px;font-size:12px;background:#222;color:#fff;border:0;';
-      return b;
-    };
-    const bCopy = btn('로그 복사');
-    const bClear = btn('지우기');
-    const bHide = btn('숨기기/보이기');
-    const bScroll = btn('①네이티브 스크롤 끔');
-    const bCapture = btn('②setPointerCapture 끔');
-    bar.appendChild(bCopy); bar.appendChild(bClear); bar.appendChild(bHide);
-    bar.appendChild(bScroll); bar.appendChild(bCapture);
-    wrap.appendChild(panel);
-    wrap.appendChild(bar);
-    document.body.appendChild(wrap);
-    dbgEl = panel;
-    dbgEl.textContent = dbgLines.join('\n');
-
-    function fallbackCopy(text) {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
-      document.body.appendChild(ta);
-      ta.focus(); ta.select();
-      try { document.execCommand('copy'); } catch (err) { /* 무시 */ }
-      document.body.removeChild(ta);
-    }
-    bCopy.addEventListener('click', () => {
-      const text = 'UA=' + navigator.userAgent + '\nIS_IPADOS=' + IS_IPADOS + '\n\n' + dbgLines.join('\n');
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(
-          () => U.toast('로그를 복사했습니다. 붙여넣기 해서 보내주세요.'),
-          () => { fallbackCopy(text); U.toast('로그를 복사했습니다.'); }
-        );
-      } else { fallbackCopy(text); U.toast('로그를 복사했습니다.'); }
-    });
-    bClear.addEventListener('click', () => { dbgLines = []; dbgEl.textContent = ''; });
-    bHide.addEventListener('click', () => {
-      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-    });
-    // 가설 검증용: 씹힘이 필기 캔버스를 담고 있는 조상(#paperScroll, overflow-y:auto)의
-    // 네이티브 스크롤(iOS 에서는 내부적으로 UIScrollView + 자체 팬 제스처 인식기가 붙는다)
-    // 때문인지 확인한다. 이걸 눌러 overflow:hidden 으로 바꾸면 그 조상은 더 이상 네이티브
-    // 스크롤 컨테이너가 아니게 되어 그 제스처 인식기가 사라진다 — 이 상태에서 같은 빠른
-    // 이중 획(x자 등)이 안 씹히면 원인이 확정된다(스크롤은 당연히 이 동안 안 먹는다,
-    // 실사용 수정이 아니라 순수 진단용 버튼이다).
-    bScroll.addEventListener('click', () => {
-      if (!scroll) return;
-      const willHide = scroll.style.overflow !== 'hidden';
-      scroll.style.overflow = willHide ? 'hidden' : '';
-      bScroll.style.background = willHide ? '#7a1f1f' : '#222';
-      dbg('진단: #paperScroll overflow → ' + (willHide ? 'hidden (네이티브 스크롤 제거됨, 스크롤 안 됨/의도됨)' : '원래대로(auto)'));
-    });
-    // 가설 검증용: setPointerCapture() 호출 직후~해제 사이의 내부 상태 때문에, 그
-    // 포인터가 끝나고 아주 짧은 시간 안에 새로 닿는 접촉이 씹히는 건 아닌지 확인한다.
-    bCapture.addEventListener('click', () => {
-      DBG_NO_CAPTURE = !DBG_NO_CAPTURE;
-      bCapture.style.background = DBG_NO_CAPTURE ? '#7a1f1f' : '#222';
-      dbg('진단: setPointerCapture() 호출 ' + (DBG_NO_CAPTURE ? '끔' : '다시 켬'));
-    });
-  }
-
   /* ---------- 필기 좌표 ---------- */
   function pt(e) {
     const r = canvas.getBoundingClientRect();
@@ -239,7 +138,6 @@ const Exam = (() => {
     let sc = null;                  // 스크롤 상태
     let flingId = 0;
     let penState = null;            // 현재 획의 { lastTs } — coalesced 역순 필터용
-    let strokeStats = null;         // 디버그 빌드: 현재 획의 raw/반영/드롭 사유 집계
 
     // 방금 끝난 획을 바로 확정하지 않고 아주 짧게 들고 있다가, 그 사이 새 펜 입력이
     // 들어오면 방금 끝난 획은 중복 아티팩트로 보고 버린다(IS_IPADOS 에서만 동작).
@@ -293,51 +191,12 @@ const Exam = (() => {
       // touch 포인터로 올려보내는데, 이를 그냥 두면 아래 2포인터 판정에 걸려
       // 필기 중이던 획이 취소되고 스크롤로 전환돼 버린다("글씨가 드래그됨" 증상).
       if (e.pointerType === 'touch' && !S.fingerDraw && (drawId !== null || act === 'draw' || act === 'erase')) {
-        dbg('DOWN touch id=' + e.pointerId + ' → 필기/지우개 중이라 걸러냄(무시)');
         e.preventDefault();
         return;
       }
 
       stopFling();
       pointers.set(e.pointerId, { y: e.clientY, type: e.pointerType });
-      const [x0, y0] = pt(e);
-      dbg('DOWN ' + e.pointerType + ' id=' + e.pointerId + ' x=' + x0.toFixed(0) + ' y=' + y0.toFixed(0) +
-          ' p=' + e.pressure + ' act=' + act + ' drawId=' + drawId + ' ptrs=' + pointers.size);
-
-      // ---- 디버그 빌드: 펜/마우스는 다른 포인터 사정과 무관하게 항상 필기를 시작/이어간다.
-      // 취소(ink.cancel)·스크롤 전환·중복 획 되돌리기(undoIfLast)를 전부 끄고,
-      // 원래라면 그런 처리가 됐을 상황만 로그로 남긴다.
-      if (DEBUG && canDraw(e)) {
-        if (reviewMode) { beginScroll(); return; }
-        if (act === 'draw' && drawId !== null && drawId !== e.pointerId) {
-          dbg('  ! 이전 획이 안 끝난 채(pointerId=' + drawId + ') 새 pointerId 로 DOWN — 취소 대신 이전 획을 그대로 확정');
-          const prev = ink.end();
-          if (prev) { saveStrokes(); Store.save(); }
-        } else if (act === 'erase' && drawId !== null && drawId !== e.pointerId) {
-          dbg('  ! 지우개 진행 중 다른 pointerId 로 DOWN — 무시하고 이어감');
-        } else if (act === 'scroll') {
-          dbg('  스크롤 상태였는데 펜이 닿음 — 취소하고 필기로 전환');
-          stopFling();
-        }
-        if (!(act === 'erase' && drawId !== null && drawId !== e.pointerId)) {
-          if (pendingStroke) {
-            const wasArtifact = looksLikeArtifact(pendingStroke, x0, y0);
-            dbg('  대기 중이던 직전 획 있음 — artifact판정=' + wasArtifact + ' (디버그라 실제로 지우지 않음, 그대로 유지)');
-            clearTimeout(pendingTimer);
-            pendingStroke = null;
-          }
-          penState = { lastTs: e.timeStamp };
-          strokeStats = { raw: 0, reflected: 0, dropPressure: 0, dropTs: 0 };
-          if (tool === 'eraser') { act = 'erase'; ink.eraseAt(x0, y0); }
-          else { act = 'draw'; ink.begin(x0, y0, e.pressure || 0.5); dbg('  → begin() 호출, 새 획 시작 p=' + (e.pressure || 0.5)); }
-          drawId = e.pointerId;
-          if (!DBG_NO_CAPTURE) {
-            try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 캡처 실패해도 필기는 이어진다 */ }
-          }
-        }
-        e.preventDefault();
-        return;
-      }
 
       const drawnByTouch = drawId !== null && pointers.get(drawId) && pointers.get(drawId).type === 'touch';
       if (pointers.size >= 2 && (drawnByTouch || act !== 'draw')) {
@@ -412,39 +271,6 @@ const Exam = (() => {
       // 배치에 이 호버 시점 잔여 좌표(압력 0)가 섞여 들어오는 경우가 있는데, 이게
       // 획 시작점에서 엉뚱한 곳으로 튀는 직선 가지의 정체다. 실제로 펜이 눌린 채
       // 그리는 중에는 pressure 가 정확히 0일 수 없으므로 그런 좌표는 버린다.
-      if (DEBUG) {
-        const raw = e.getCoalescedEvents ? e.getCoalescedEvents() : null;
-        const src = raw && raw.length ? raw : [e];
-        const list0 = U.penEvents(e, penState, src);   // 이 호출이 penState.lastTs 를 갱신한다
-        if (strokeStats) {
-          strokeStats.raw += src.length;
-          strokeStats.reflected += list0.length;
-          src.forEach(ev => {
-            if (list0.indexOf(ev) === -1) {
-              if (ev.pointerType === 'pen' && ev.pressure === 0) strokeStats.dropPressure++;
-              else strokeStats.dropTs++;
-            }
-          });
-        }
-        if (act === 'draw') {
-          list0.forEach(ev => { const [x, y] = pt(ev); ink.extend(x, y, ev.pressure || 0.5); });
-        } else if (act === 'erase') {
-          list0.forEach(ev => { const [x, y] = pt(ev); ink.eraseAt(x, y); });
-        }
-        e.preventDefault();
-        return;
-      }
-
-      // iOS Safari 는 getCoalescedEvents() 가 간혹 시간 역순/중복된 좌표를 섞어
-      // 내려보낸다. 이를 그대로 그리면 아직 안 그려진 뒷부분으로 잠깐 직선으로
-      // 튀었다가 실제 좌표들이 뒤따라와 다시 채워지면서, 빠른 획 하나가 두 갈래로
-      // 갈라졌다 합쳐지는 것처럼 보인다. timeStamp 가 역행하는 좌표는 버린다.
-      //
-      // 애플펜슬은 화면에 닿기 전 "호버" 상태에서도 pointermove 를 보낼 수 있고
-      // 이때 pressure 는 항상 정확히 0 이다. 접촉 직후 첫 pointermove 의 coalesced
-      // 배치에 이 호버 시점 잔여 좌표(압력 0)가 섞여 들어오는 경우가 있는데, 이게
-      // 획 시작점에서 엉뚱한 곳으로 튀는 직선 가지의 정체다. 실제로 펜이 눌린 채
-      // 그리는 중에는 pressure 가 정확히 0일 수 없으므로 그런 좌표는 버린다.
       const list = U.penEvents(e, penState);
       if (act === 'draw') {
         list.forEach(ev => { const [x, y] = pt(ev); ink.extend(x, y, ev.pressure || 0.5); });
@@ -455,26 +281,10 @@ const Exam = (() => {
     }, { passive: false });
 
     function finish(e) {
-      const wasDrawing = act === 'draw' && e.pointerId === drawId;
-      const wasErasing = act === 'erase' && e.pointerId === drawId;
       pointers.delete(e.pointerId);
-      if (wasDrawing || wasErasing) {
-        dbg((e.type === 'pointercancel' ? 'CANCEL' : 'UP') + ' id=' + e.pointerId +
-            ' act=' + act + ' ptrs남음=' + pointers.size);
-      }
       if (act === 'draw' && e.pointerId === drawId) {
         const s = ink.end();
-        if (DEBUG) {
-          // 디버그 빌드: 중복-아티팩트 판정으로 인한 획 취소를 완전히 끈다.
-          // 끝난 획은 곧바로 확정해서 저장한다.
-          if (strokeStats) {
-            dbg('  raw=' + strokeStats.raw + ' 반영=' + strokeStats.reflected +
-                ' 드롭(압력0)=' + strokeStats.dropPressure + ' 드롭(시간역순)=' + strokeStats.dropTs);
-            strokeStats = null;
-          }
-          if (s) { dbg('  획 확정: 점 ' + s.p.length + '개'); saveStrokes(); Store.save(); }
-          else dbg('  ink.end() 가 null 반환(점 0개 획?)');
-        } else if (s && IS_IPADOS) {
+        if (s && IS_IPADOS) {
           // 바로 확정하지 않고 DUP_MS 만큼 들고 있는다. 그 사이 새 펜 입력이
           // 오면(pointerdown 핸들러) 이 획은 중복 아티팩트로 보고 버려진다.
           clearTimeout(pendingTimer);
@@ -506,34 +316,6 @@ const Exam = (() => {
       const hint = U.el('#scrollHint');
       if (hint && scroll.scrollTop > 40) hint.classList.add('is-off');
     }, { passive: true });
-
-    if (DEBUG) {
-      // 진단 전용: "씹힌 획" 구간에 로그가 아예 안 남는 문제를 추적하기 위해,
-      // canvas 의 pointerdown 보다 더 이른/다른 경로에서도 뭔가 잡히는지 본다.
-      //   - DOC-CAPTURE 도 안 찍힘 + TOUCHSTART 도 안 찍힘
-      //     → 브라우저/OS 제스처 인식기가 DOM 에 닿기 전에 접촉을 통째로 삼킨 것
-      //       (우리 코드로는 손 쓸 수 없는, 브라우저 쪽 문제일 가능성이 큼)
-      //   - DOC-CAPTURE 는 찍히는데 canvas 의 DOWN 로그는 안 찍힘
-      //     → 이벤트는 왔는데 다른 엘리먼트가 가로챔(우리 쪽에서 고칠 수 있는 문제)
-      //   - TOUCHSTART(레거시) 는 찍히는데 pointerdown 은 안 찍힘
-      //     → 이 브라우저의 Pointer Events 구현 자체가 결함이 있는 것
-      document.addEventListener('pointerdown', e => {
-        const tag = e.target && (e.target.id || e.target.className || e.target.tagName);
-        dbg('DOC-CAPTURE pointerdown type=' + e.pointerType + ' id=' + e.pointerId + ' target=' + tag);
-      }, true);
-      canvas.addEventListener('touchstart', e => {
-        const t = e.changedTouches[0];
-        dbg('TOUCHSTART(레거시) id=' + (t ? t.identifier : '?') +
-            ' x=' + (t ? t.clientX.toFixed(0) : '?') + ' y=' + (t ? t.clientY.toFixed(0) : '?') +
-            ' touches=' + e.touches.length);
-      }, { passive: true });
-      canvas.addEventListener('touchend', e => {
-        dbg('TOUCHEND(레거시) touches남음=' + e.touches.length);
-      }, { passive: true });
-      window.addEventListener('blur', () => dbg('WINDOW BLUR(포커스 잃음)'));
-      window.addEventListener('focus', () => dbg('WINDOW FOCUS'));
-      document.addEventListener('visibilitychange', () => dbg('VISIBILITY → ' + document.visibilityState));
-    }
   }
 
   /* ---------- 초기화 ---------- */
@@ -545,9 +327,6 @@ const Exam = (() => {
     inner = U.el('#paperInner');
     canvas = U.el('#inkCanvas');
     ink = createInk(canvas);
-    mountDebugPanel();
-    dbg('BUILD=' + BUILD_TAG);
-    dbg('mount() UA=' + navigator.userAgent);
 
     U.el('#btnPrev').addEventListener('click', () => show(S.current - 1));
     U.el('#btnNext').addEventListener('click', () => show(S.current + 1));

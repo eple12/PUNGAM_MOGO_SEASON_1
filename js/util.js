@@ -13,17 +13,10 @@ const U = (() => {
      - iOS 가 coalesced 배치 안에서 간혹 시간 역순으로 섞어 보내는 좌표를 버린다
        (그대로 그리면 빠른 획이 두 갈래로 갈라졌다 합쳐지는 것처럼 보인다)
      state 는 호출부가 pointerdown 시 { lastTs: -1 } 로 새로 만들어 스트로크가
-     끝날 때까지 들고 있어야 한다(획마다 독립적인 역순 판정 기준이 필요하므로).
-     srcList 는 선택 — getCoalescedEvents() 는 호출할 때마다 새 배열(새 이벤트
-     객체)을 만들어내므로, 호출부가 이미 한 번 받아 둔 원본 목록과 대조(예:
-     디버그 로깅에서 어떤 게 버려졌는지 추적)하려면 그 배열을 그대로 넘겨야
-     한다 — 두 번째로 새로 fetch 하면 객체 참조가 달라져 비교가 깨진다. */
-  function penEvents(e, state, srcList) {
-    let src = srcList;
-    if (!src) {
-      const list = e.getCoalescedEvents ? e.getCoalescedEvents() : null;
-      src = list && list.length ? list : [e];
-    }
+     끝날 때까지 들고 있어야 한다(획마다 독립적인 역순 판정 기준이 필요하므로). */
+  function penEvents(e, state) {
+    const list = e.getCoalescedEvents ? e.getCoalescedEvents() : null;
+    const src = list && list.length ? list : [e];
     return src.filter(ev => {
       if (ev.pointerType === 'pen' && ev.pressure === 0) return false;
       // 브라우저에 따라 timeStamp 정밀도가 낮아(반올림) coalesced 배치 안의

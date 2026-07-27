@@ -27,6 +27,9 @@ const Exam = (() => {
    * 이 블록과 아래 dbg(...)/DEBUG 분기들은 원인이 파악되면 통째로 지운다.
    * ===================================================================== */
   const DEBUG = IS_IPADOS || /(?:^|[?&])dbg=1\b/.test(location.search);
+  // 로그 맨 위에 이 값을 찍어서, 캐시된 옛날 스크립트로 테스트한 건 아닌지
+  // 로그만 보고 바로 확인할 수 있게 한다. 새 진단 코드를 추가할 때마다 올린다.
+  const BUILD_TAG = 'dbg-build-6(ts-relax,doc-capture,touchstart,scroll-toggle)';
   let dbgLines = [];
   let dbgEl = null;
   let dbgT0 = performance.now();
@@ -63,7 +66,8 @@ const Exam = (() => {
     const bCopy = btn('로그 복사');
     const bClear = btn('지우기');
     const bHide = btn('숨기기/보이기');
-    bar.appendChild(bCopy); bar.appendChild(bClear); bar.appendChild(bHide);
+    const bScroll = btn('①네이티브 스크롤 끔');
+    bar.appendChild(bCopy); bar.appendChild(bClear); bar.appendChild(bHide); bar.appendChild(bScroll);
     wrap.appendChild(panel);
     wrap.appendChild(bar);
     document.body.appendChild(wrap);
@@ -91,6 +95,19 @@ const Exam = (() => {
     bClear.addEventListener('click', () => { dbgLines = []; dbgEl.textContent = ''; });
     bHide.addEventListener('click', () => {
       panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    });
+    // 가설 검증용: 씹힘이 필기 캔버스를 담고 있는 조상(#paperScroll, overflow-y:auto)의
+    // 네이티브 스크롤(iOS 에서는 내부적으로 UIScrollView + 자체 팬 제스처 인식기가 붙는다)
+    // 때문인지 확인한다. 이걸 눌러 overflow:hidden 으로 바꾸면 그 조상은 더 이상 네이티브
+    // 스크롤 컨테이너가 아니게 되어 그 제스처 인식기가 사라진다 — 이 상태에서 같은 빠른
+    // 이중 획(x자 등)이 안 씹히면 원인이 확정된다(스크롤은 당연히 이 동안 안 먹는다,
+    // 실사용 수정이 아니라 순수 진단용 버튼이다).
+    bScroll.addEventListener('click', () => {
+      if (!scroll) return;
+      const willHide = scroll.style.overflow !== 'hidden';
+      scroll.style.overflow = willHide ? 'hidden' : '';
+      bScroll.style.background = willHide ? '#7a1f1f' : '#222';
+      dbg('진단: #paperScroll overflow → ' + (willHide ? 'hidden (네이티브 스크롤 제거됨, 스크롤 안 됨/의도됨)' : '원래대로(auto)'));
     });
   }
 
@@ -517,6 +534,7 @@ const Exam = (() => {
     canvas = U.el('#inkCanvas');
     ink = createInk(canvas);
     mountDebugPanel();
+    dbg('BUILD=' + BUILD_TAG);
     dbg('mount() UA=' + navigator.userAgent);
 
     U.el('#btnPrev').addEventListener('click', () => show(S.current - 1));

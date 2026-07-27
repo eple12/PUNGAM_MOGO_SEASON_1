@@ -12,12 +12,13 @@ const Exam = (() => {
   let mounted = false;
   let reviewMode = false;
 
-  /* 한 프레임에 뭉쳐 들어온 입력을 모두 꺼내 쓴다(획이 각지는 것을 막는다) */
-  function coalesced(e) {
-    if (!e.getCoalescedEvents) return [e];
-    const list = e.getCoalescedEvents();
-    return list && list.length ? list : [e];
-  }
+  // 애플펜슬 접촉 한 번에 포인터 스트림이 두 번(즉시 끝났다 곧바로 다시 시작) 잡히는
+  // 버그는 iPadOS Safari 에서만 관찰된다. 갤럭시 S펜 등 다른 환경까지 같은 방식으로
+  // 걸러내면 사람이 비슷한 자리에 빠르게 연속으로 쓴 정상 획(점 찍기 등)이 중복
+  // 아티팩트로 오인되어 지워진다("씹힘"). iPadOS 13+ 의 Safari 는 데스크톱 Mac 으로
+  // 위장하지만 멀티터치를 지원한다는 점으로 구분한다.
+  const IS_IPADOS = /iPad/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
   /* ---------- 필기 좌표 ---------- */
   function pt(e) {
@@ -136,16 +137,24 @@ const Exam = (() => {
     let drawId = null;
     let sc = null;                  // 스크롤 상태
     let flingId = 0;
-    let lastTs = -1;                // 마지막으로 반영한 좌표의 timeStamp (역순 이벤트 방지)
+    let penState = null;            // 현재 획의 { lastTs } — coalesced 역순 필터용
 
-    // 애플펜슬 접촉 한 번에 포인터 스트림이 두 번(즉시 끝났다 곧바로 다시 시작) 잡히는
-    // 경우를 걸러내기 위한 유예 상태. 방금 끝난 획을 바로 확정하지 않고 아주 짧게
-    // 들고 있다가, 그 사이 새 펜 입력이 들어오면 방금 끝난 획은 중복 아티팩트로 보고
-    // 버린다. 사람이 의도적으로 다시 찍는 필기(점 찍기 등)는 이 시간보다 훨씬 느리다.
+    // 방금 끝난 획을 바로 확정하지 않고 아주 짧게 들고 있다가, 그 사이 새 펜 입력이
+    // 들어오면 방금 끝난 획은 중복 아티팩트로 보고 버린다(IS_IPADOS 에서만 동작).
+    // 사람이 의도적으로 다시 찍는 필기(점 찍기 등)는 이 시간보다 훨씬 느리므로,
+    // 추가로 "짧고 곧은 잔가지" 모양(점 2개 이하 또는 아주 작은 범위)일 때만 의심한다.
     let pendingStroke = null;
     let pendingTimer = 0;
     const DUP_MS = 45;
-    const DUP_R = 14;                // 이 거리보다 가까울 때만 "같은 접촉점" 중복으로 본다
+    const DUP_R = 10;                // 이 거리보다 가까울 때만 "같은 접촉점" 중복으로 본다
+    const DUP_SPAN = 20;             // 이 범위보다 넓게 그려진 획은 진짜 필기로 본다
+
+    function looksLikeArtifact(s, x, y) {
+      const p0 = s.p[0];
+      if (Math.hypot(x - p0[0], y - p0[1]) >= DUP_R) return false;
+      const b = s.b;
+      return (b[2] - b[0]) < DUP_SPAN && (b[3] - b[1]) < DUP_SPAN;
+    }
 
     const canDraw = e => e.pointerType === 'pen' || e.pointerType === 'mouse' || (S.fingerDraw && e.pointerType === 'touch');
     const avgY = () => {
@@ -200,17 +209,16 @@ const Exam = (() => {
         if (reviewMode) { beginScroll(); return; }
         const [x, y] = pt(e);
         if (pendingStroke) {
-          // 진짜 중복 아티팩트는 방금 그 자리(같은 접촉점)에서 다시 잡히므로 시작점과
-          // 아주 가까울 때만 버린다. 점선처럼 일부러 조금 떨어진 곳을 빠르게 연속으로
-          // 찍는 정상 필기까지 지워버리지 않기 위한 구분이다.
-          const p0 = pendingStroke.p[0];
-          if (Math.hypot(x - p0[0], y - p0[1]) < DUP_R) {
+          // 진짜 중복 아티팩트는 방금 그 자리(같은 접촉점)에서, 아주 작은 범위로만
+          // 잡히므로 그 모양일 때만 버린다. 점선처럼 일부러 조금 떨어진 곳을 빠르게
+          // 연속으로 찍는 정상 필기까지 지워버리지 않기 위한 구분이다.
+          if (looksLikeArtifact(pendingStroke, x, y)) {
             clearTimeout(pendingTimer);
             ink.undoIfLast(pendingStroke);
           }
           pendingStroke = null;
         }
-        lastTs = e.timeStamp;
+        penState = { lastTs: e.timeStamp };
         if (tool === 'eraser') { act = 'erase'; ink.eraseAt(x, y); }
         else { act = 'draw'; ink.begin(x, y, e.pressure || 0.5); }
         drawId = e.pointerId;
@@ -248,12 +256,7 @@ const Exam = (() => {
       // 배치에 이 호버 시점 잔여 좌표(압력 0)가 섞여 들어오는 경우가 있는데, 이게
       // 획 시작점에서 엉뚱한 곳으로 튀는 직선 가지의 정체다. 실제로 펜이 눌린 채
       // 그리는 중에는 pressure 가 정확히 0일 수 없으므로 그런 좌표는 버린다.
-      const list = coalesced(e).filter(ev => {
-        if (ev.pointerType === 'pen' && ev.pressure === 0) return false;
-        if (ev.timeStamp <= lastTs) return false;
-        lastTs = ev.timeStamp;
-        return true;
-      });
+      const list = U.penEvents(e, penState);
       if (act === 'draw') {
         list.forEach(ev => { const [x, y] = pt(ev); ink.extend(x, y, ev.pressure || 0.5); });
       } else if (act === 'erase') {
@@ -266,7 +269,7 @@ const Exam = (() => {
       pointers.delete(e.pointerId);
       if (act === 'draw' && e.pointerId === drawId) {
         const s = ink.end();
-        if (s) {
+        if (s && IS_IPADOS) {
           // 바로 확정하지 않고 DUP_MS 만큼 들고 있는다. 그 사이 새 펜 입력이
           // 오면(pointerdown 핸들러) 이 획은 중복 아티팩트로 보고 버려진다.
           clearTimeout(pendingTimer);
@@ -275,6 +278,8 @@ const Exam = (() => {
             pendingStroke = null;
             saveStrokes(); Store.save();
           }, DUP_MS);
+        } else if (s) {
+          saveStrokes(); Store.save();
         }
         drawId = null;
       }

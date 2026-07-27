@@ -255,10 +255,12 @@ function buildSheet(host, mode) {
     /* 필적 확인란은 인적사항 작성 중에만 쓸 수 있다. 시험이 시작된 뒤에는
        (mode === 'exam') 실제 답안지처럼 더 이상 손댈 수 없어야 한다. */
     let drawing = false;
+    let penState = null;
     cv.addEventListener('pointerdown', e => {
       if (mode !== 'identity') return;
       const r = cv.getBoundingClientRect();
       drawing = true;
+      penState = { lastTs: e.timeStamp };
       verifyInk.begin(e.clientX - r.left, e.clientY - r.top, e.pressure || 0.5);
       try { cv.setPointerCapture(e.pointerId); } catch (err) { /* 캡처 실패해도 필기는 이어진다 */ }
       e.preventDefault();
@@ -266,9 +268,7 @@ function buildSheet(host, mode) {
     cv.addEventListener('pointermove', e => {
       if (!drawing) return;
       const r = cv.getBoundingClientRect();
-      let list = e.getCoalescedEvents ? e.getCoalescedEvents() : null;
-      if (!list || !list.length) list = [e];
-      list.forEach(ev => verifyInk.extend(ev.clientX - r.left, ev.clientY - r.top, ev.pressure || 0.5));
+      U.penEvents(e, penState).forEach(ev => verifyInk.extend(ev.clientX - r.left, ev.clientY - r.top, ev.pressure || 0.5));
       e.preventDefault();
     });
     const stop = () => {

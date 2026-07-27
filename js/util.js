@@ -7,6 +7,24 @@ const U = (() => {
   const el = (sel, root) => (root || document).querySelector(sel);
   const els = (sel, root) => Array.from((root || document).querySelectorAll(sel));
 
+  /* 펜/터치 포인터 이벤트에서 실제로 그릴 좌표만 뽑아낸다(필기 캔버스 공용 로직).
+     - 한 프레임에 뭉쳐 들어온 coalesced 이벤트를 모두 펼치고
+     - 애플펜슬이 화면에 닿기 전 "호버" 상태에서 흘려보내는 압력 0 잔여 좌표를 버리고
+     - iOS 가 coalesced 배치 안에서 간혹 시간 역순으로 섞어 보내는 좌표를 버린다
+       (그대로 그리면 빠른 획이 두 갈래로 갈라졌다 합쳐지는 것처럼 보인다)
+     state 는 호출부가 pointerdown 시 { lastTs: -1 } 로 새로 만들어 스트로크가
+     끝날 때까지 들고 있어야 한다(획마다 독립적인 역순 판정 기준이 필요하므로). */
+  function penEvents(e, state) {
+    const list = e.getCoalescedEvents ? e.getCoalescedEvents() : null;
+    const src = list && list.length ? list : [e];
+    return src.filter(ev => {
+      if (ev.pointerType === 'pen' && ev.pressure === 0) return false;
+      if (ev.timeStamp <= state.lastTs) return false;
+      state.lastTs = ev.timeStamp;
+      return true;
+    });
+  }
+
   function make(tag, cls, html) {
     const n = document.createElement(tag);
     if (cls) n.className = cls;
@@ -199,5 +217,5 @@ const U = (() => {
     }, ms || 2200);
   }
 
-  return { el, els, make, esc, questionHtml, typeset, clock, durationText, CIRCLED, circ, scoreChart, modal, closeModal, toast };
+  return { el, els, make, esc, questionHtml, typeset, clock, durationText, CIRCLED, circ, scoreChart, modal, closeModal, toast, penEvents };
 })();

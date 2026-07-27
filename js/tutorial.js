@@ -142,9 +142,11 @@ const Tutorial = (() => {
     // 스쳐도 무시되어(스크롤 등 기본 동작만 남는다) 오작동을 막는다.
     const canDraw = e => e.pointerType === 'pen' || e.pointerType === 'mouse' || (fingerDraw && e.pointerType === 'touch');
     let drawing = false;
+    let penState = null;
     canvas.addEventListener('pointerdown', e => {
       if (!canDraw(e)) return;
       drawing = true;
+      penState = { lastTs: e.timeStamp };
       const [x, y] = pt(e);
       if (penTool === 'eraser') ink.eraseAt(x, y);
       else ink.begin(x, y, e.pressure || 0.5);
@@ -153,9 +155,12 @@ const Tutorial = (() => {
     }, { passive: false });
     canvas.addEventListener('pointermove', e => {
       if (!drawing) return;
-      const [x, y] = pt(e);
-      if (penTool === 'eraser') ink.eraseAt(x, y);
-      else ink.extend(x, y, e.pressure || 0.5);
+      if (penTool === 'eraser') {
+        const [x, y] = pt(e);
+        ink.eraseAt(x, y);
+      } else {
+        U.penEvents(e, penState).forEach(ev => { const [x, y] = pt(ev); ink.extend(x, y, ev.pressure || 0.5); });
+      }
       e.preventDefault();
     }, { passive: false });
     const stop = () => {

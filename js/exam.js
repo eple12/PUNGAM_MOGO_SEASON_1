@@ -20,6 +20,80 @@ const Exam = (() => {
   const IS_IPADOS = /iPad/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
+  /* =====================================================================
+   * 임시 디버그 빌드 — 아이패드에서 필기가 자꾸 취소/분리된다는 제보를 받아
+   * 원인을 눈으로 보기 위해 만든 것. F12 를 쓸 수 없는 아이패드에서도 볼 수
+   * 있도록 화면 하단에 로그 패널을 직접 띄운다. 예뻐 보일 필요 없음.
+   * 이 블록과 아래 dbg(...)/DEBUG 분기들은 원인이 파악되면 통째로 지운다.
+   * ===================================================================== */
+  const DEBUG = IS_IPADOS || /(?:^|[?&])dbg=1\b/.test(location.search);
+  let dbgLines = [];
+  let dbgEl = null;
+  let dbgT0 = performance.now();
+  function dbg(msg) {
+    if (!DEBUG) return;
+    const t = ((performance.now() - dbgT0) / 1000).toFixed(3);
+    dbgLines.push('[' + t + '] ' + msg);
+    if (dbgLines.length > 400) dbgLines.splice(0, dbgLines.length - 400);
+    if (dbgEl) {
+      dbgEl.textContent = dbgLines.join('\n');
+      dbgEl.scrollTop = dbgEl.scrollHeight;
+    }
+  }
+  function mountDebugPanel() {
+    if (!DEBUG || U.el('#dbgPanel')) return;
+    const wrap = document.createElement('div');
+    wrap.id = 'dbgWrap';
+    wrap.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;' +
+      'display:flex;flex-direction:column;font-family:ui-monospace,Menlo,Consolas,monospace;';
+    const panel = document.createElement('div');
+    panel.id = 'dbgPanel';
+    panel.style.cssText = 'max-height:38vh;overflow-y:auto;background:rgba(10,12,16,.94);' +
+      'color:#8CF28C;font-size:10.5px;line-height:1.45;padding:6px 8px;' +
+      'white-space:pre-wrap;word-break:break-all;';
+    const bar = document.createElement('div');
+    bar.style.cssText = 'display:flex;gap:1px;background:#000;';
+    const btn = (label) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.style.cssText = 'flex:1;padding:10px 4px;font-size:12px;background:#222;color:#fff;border:0;';
+      return b;
+    };
+    const bCopy = btn('로그 복사');
+    const bClear = btn('지우기');
+    const bHide = btn('숨기기/보이기');
+    bar.appendChild(bCopy); bar.appendChild(bClear); bar.appendChild(bHide);
+    wrap.appendChild(panel);
+    wrap.appendChild(bar);
+    document.body.appendChild(wrap);
+    dbgEl = panel;
+    dbgEl.textContent = dbgLines.join('\n');
+
+    function fallbackCopy(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      try { document.execCommand('copy'); } catch (err) { /* 무시 */ }
+      document.body.removeChild(ta);
+    }
+    bCopy.addEventListener('click', () => {
+      const text = 'UA=' + navigator.userAgent + '\nIS_IPADOS=' + IS_IPADOS + '\n\n' + dbgLines.join('\n');
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(
+          () => U.toast('로그를 복사했습니다. 붙여넣기 해서 보내주세요.'),
+          () => { fallbackCopy(text); U.toast('로그를 복사했습니다.'); }
+        );
+      } else { fallbackCopy(text); U.toast('로그를 복사했습니다.'); }
+    });
+    bClear.addEventListener('click', () => { dbgLines = []; dbgEl.textContent = ''; });
+    bHide.addEventListener('click', () => {
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    });
+  }
+
   /* ---------- 필기 좌표 ---------- */
   function pt(e) {
     const r = canvas.getBoundingClientRect();
@@ -191,12 +265,48 @@ const Exam = (() => {
       // touch 포인터로 올려보내는데, 이를 그냥 두면 아래 2포인터 판정에 걸려
       // 필기 중이던 획이 취소되고 스크롤로 전환돼 버린다("글씨가 드래그됨" 증상).
       if (e.pointerType === 'touch' && !S.fingerDraw && (drawId !== null || act === 'draw' || act === 'erase')) {
+        dbg('DOWN touch id=' + e.pointerId + ' → 필기/지우개 중이라 걸러냄(무시)');
         e.preventDefault();
         return;
       }
 
       stopFling();
       pointers.set(e.pointerId, { y: e.clientY, type: e.pointerType });
+      const [x0, y0] = pt(e);
+      dbg('DOWN ' + e.pointerType + ' id=' + e.pointerId + ' x=' + x0.toFixed(0) + ' y=' + y0.toFixed(0) +
+          ' p=' + e.pressure + ' act=' + act + ' drawId=' + drawId + ' ptrs=' + pointers.size);
+
+      // ---- 디버그 빌드: 펜/마우스는 다른 포인터 사정과 무관하게 항상 필기를 시작/이어간다.
+      // 취소(ink.cancel)·스크롤 전환·중복 획 되돌리기(undoIfLast)를 전부 끄고,
+      // 원래라면 그런 처리가 됐을 상황만 로그로 남긴다.
+      if (DEBUG && canDraw(e)) {
+        if (reviewMode) { beginScroll(); return; }
+        if (act === 'draw' && drawId !== null && drawId !== e.pointerId) {
+          dbg('  ! 이전 획이 안 끝난 채(pointerId=' + drawId + ') 새 pointerId 로 DOWN — 취소 대신 이전 획을 그대로 확정');
+          const prev = ink.end();
+          if (prev) { saveStrokes(); Store.save(); }
+        } else if (act === 'erase' && drawId !== null && drawId !== e.pointerId) {
+          dbg('  ! 지우개 진행 중 다른 pointerId 로 DOWN — 무시하고 이어감');
+        } else if (act === 'scroll') {
+          dbg('  스크롤 상태였는데 펜이 닿음 — 취소하고 필기로 전환');
+          stopFling();
+        }
+        if (!(act === 'erase' && drawId !== null && drawId !== e.pointerId)) {
+          if (pendingStroke) {
+            const wasArtifact = looksLikeArtifact(pendingStroke, x0, y0);
+            dbg('  대기 중이던 직전 획 있음 — artifact판정=' + wasArtifact + ' (디버그라 실제로 지우지 않음, 그대로 유지)');
+            clearTimeout(pendingTimer);
+            pendingStroke = null;
+          }
+          penState = { lastTs: e.timeStamp };
+          if (tool === 'eraser') { act = 'erase'; ink.eraseAt(x0, y0); }
+          else { act = 'draw'; ink.begin(x0, y0, e.pressure || 0.5); dbg('  → begin() 호출, 새 획 시작'); }
+          drawId = e.pointerId;
+          try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 캡처 실패해도 필기는 이어진다 */ }
+        }
+        e.preventDefault();
+        return;
+      }
 
       const drawnByTouch = drawId !== null && pointers.get(drawId) && pointers.get(drawId).type === 'touch';
       if (pointers.size >= 2 && (drawnByTouch || act !== 'draw')) {
@@ -271,6 +381,32 @@ const Exam = (() => {
       // 배치에 이 호버 시점 잔여 좌표(압력 0)가 섞여 들어오는 경우가 있는데, 이게
       // 획 시작점에서 엉뚱한 곳으로 튀는 직선 가지의 정체다. 실제로 펜이 눌린 채
       // 그리는 중에는 pressure 가 정확히 0일 수 없으므로 그런 좌표는 버린다.
+      if (DEBUG) {
+        const raw = e.getCoalescedEvents ? e.getCoalescedEvents() : null;
+        const rawN = raw && raw.length ? raw.length : 1;
+        const list0 = U.penEvents(e, penState);
+        if (list0.length === 0 && rawN > 0) {
+          dbg('MOVE id=' + e.pointerId + ' → coalesced ' + rawN + '개가 전부 필터링되어 0개 반영됨(호버/역순 의심)');
+        }
+        if (act === 'draw') {
+          list0.forEach(ev => { const [x, y] = pt(ev); ink.extend(x, y, ev.pressure || 0.5); });
+        } else if (act === 'erase') {
+          list0.forEach(ev => { const [x, y] = pt(ev); ink.eraseAt(x, y); });
+        }
+        e.preventDefault();
+        return;
+      }
+
+      // iOS Safari 는 getCoalescedEvents() 가 간혹 시간 역순/중복된 좌표를 섞어
+      // 내려보낸다. 이를 그대로 그리면 아직 안 그려진 뒷부분으로 잠깐 직선으로
+      // 튀었다가 실제 좌표들이 뒤따라와 다시 채워지면서, 빠른 획 하나가 두 갈래로
+      // 갈라졌다 합쳐지는 것처럼 보인다. timeStamp 가 역행하는 좌표는 버린다.
+      //
+      // 애플펜슬은 화면에 닿기 전 "호버" 상태에서도 pointermove 를 보낼 수 있고
+      // 이때 pressure 는 항상 정확히 0 이다. 접촉 직후 첫 pointermove 의 coalesced
+      // 배치에 이 호버 시점 잔여 좌표(압력 0)가 섞여 들어오는 경우가 있는데, 이게
+      // 획 시작점에서 엉뚱한 곳으로 튀는 직선 가지의 정체다. 실제로 펜이 눌린 채
+      // 그리는 중에는 pressure 가 정확히 0일 수 없으므로 그런 좌표는 버린다.
       const list = U.penEvents(e, penState);
       if (act === 'draw') {
         list.forEach(ev => { const [x, y] = pt(ev); ink.extend(x, y, ev.pressure || 0.5); });
@@ -281,10 +417,21 @@ const Exam = (() => {
     }, { passive: false });
 
     function finish(e) {
+      const wasDrawing = act === 'draw' && e.pointerId === drawId;
+      const wasErasing = act === 'erase' && e.pointerId === drawId;
       pointers.delete(e.pointerId);
+      if (wasDrawing || wasErasing) {
+        dbg((e.type === 'pointercancel' ? 'CANCEL' : 'UP') + ' id=' + e.pointerId +
+            ' act=' + act + ' ptrs남음=' + pointers.size);
+      }
       if (act === 'draw' && e.pointerId === drawId) {
         const s = ink.end();
-        if (s && IS_IPADOS) {
+        if (DEBUG) {
+          // 디버그 빌드: 중복-아티팩트 판정으로 인한 획 취소를 완전히 끈다.
+          // 끝난 획은 곧바로 확정해서 저장한다.
+          if (s) { dbg('  획 확정: 점 ' + s.p.length + '개'); saveStrokes(); Store.save(); }
+          else dbg('  ink.end() 가 null 반환(점 0개 획?)');
+        } else if (s && IS_IPADOS) {
           // 바로 확정하지 않고 DUP_MS 만큼 들고 있는다. 그 사이 새 펜 입력이
           // 오면(pointerdown 핸들러) 이 획은 중복 아티팩트로 보고 버려진다.
           clearTimeout(pendingTimer);
@@ -327,6 +474,8 @@ const Exam = (() => {
     inner = U.el('#paperInner');
     canvas = U.el('#inkCanvas');
     ink = createInk(canvas);
+    mountDebugPanel();
+    dbg('mount() UA=' + navigator.userAgent);
 
     U.el('#btnPrev').addEventListener('click', () => show(S.current - 1));
     U.el('#btnNext').addEventListener('click', () => show(S.current + 1));

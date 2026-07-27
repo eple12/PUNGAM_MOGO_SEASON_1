@@ -128,13 +128,20 @@ const Remote = (() => {
       await commit(Object.assign({ strokes: toFirestoreStrokes(strokes), strokeSize: strokeSize || {} }, basePayload));
       return { saved: true };
     } catch (e) {
-      // 필기량이 많아 Firestore 문서 용량(1MB)을 넘기는 등의 이유로 실패하면
-      // 필기 없이 채점 결과만이라도 남긴다(성적 보존이 우선이다).
+      // permission-denied 는 이미 제출된 기록이 있어 보안 규칙이 덮어쓰기를
+      // 막은 것이다(재응시 방지 · js/remote.js 상단 규칙 참고) — 필기 없이
+      // 다시 써도 똑같이 막히므로 재시도 없이 바로 실패 처리한다. 그 외
+      // 오류(문서 용량 초과 등)는 필기를 빼고 한 번 더 시도해 성적만이라도 남긴다.
+      console.error('[Remote] 필기 포함 저장 실패:', e);
+      if (e && e.code === 'permission-denied') {
+        return { saved: false, error: e, code: e.code };
+      }
       try {
         await commit(basePayload);
         return { saved: true, strokesDropped: true };
       } catch (e2) {
-        return { saved: false, error: e2 };
+        console.error('[Remote] 필기 제외 재시도도 실패:', e2);
+        return { saved: false, error: e2, code: e2 && e2.code };
       }
     }
   }

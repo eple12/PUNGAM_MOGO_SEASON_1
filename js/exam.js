@@ -80,8 +80,13 @@ const Exam = (() => {
   function saveStrokes() {
     if (!ink || loadedFor == null) return;
     const list = ink.dump();
-    if (list.length) S.strokes[loadedFor] = list;
-    else delete S.strokes[loadedFor];
+    if (list.length) {
+      S.strokes[loadedFor] = list;
+      S.strokeSize[loadedFor] = ink.size();
+    } else {
+      delete S.strokes[loadedFor];
+      delete S.strokeSize[loadedFor];
+    }
   }
 
   /* ---------- 문항 목록 ---------- */

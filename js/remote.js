@@ -42,7 +42,7 @@ const FIREBASE_CONFIG = {
 const Remote = (() => {
 
   const COLLECTION = 'submissions';
-  const SCORES_COLLECTION = 'scores';   // 익명 점수 분포 조회용(이름·학번 없음)
+  const SCORES_COLLECTION = 'scores';   // 익명 점수 분포 조회용(이름·학번 없음) — 결과 화면에서 가볍게 불러오려고 따로 둔다
   let db = null;
   let enabled = false;
 
@@ -60,6 +60,23 @@ const Remote = (() => {
 
   function idDocKey(id) { return 'id_' + id; }
   function nameDocKey(name) { return 'name_' + encodeURIComponent(name.trim()); }
+
+  /* Firestore 는 배열 안에 배열을 직접 넣는 것을 허용하지 않는다("Nested arrays
+     are not supported"). js/ink.js 의 획은 점을 [x,y,pressure] 배열로, 획 목록을
+     그 배열들의 배열로 담고 있어 그대로 보내면 이 제약에 걸려 batch.commit() 이
+     통째로 실패한다(그러면 아래 fallback 이 필기를 통째로 빼고 다시 저장해,
+     결과적으로 필기가 서버에 하나도 남지 않는다). 점을 {x,y,p} 객체로 바꿔
+     배열 중첩을 없앤다. */
+  function toFirestoreStrokes(strokes) {
+    const out = {};
+    Object.keys(strokes || {}).forEach(no => {
+      out[no] = (strokes[no] || []).map(s => ({
+        p: (s.p || []).map(pt => ({ x: pt[0], y: pt[1], p: pt[2] })),
+        b: s.b || null
+      }));
+    });
+    return out;
+  }
 
   /* 학번(있으면) 또는 이름으로 이미 제출된 기록이 있는지 확인한다.
      학번 문서(id_*)와 이름 문서(name_*) 두 곳을 모두 찾아보고
@@ -82,35 +99,49 @@ const Remote = (() => {
 
   /* 채점 결과를 저장한다. 학번 문서·이름 문서 두 곳에 같은 내용을 써서
      이후 어느 쪽으로 조회해도 중복 확인에 걸리게 한다. */
-  async function saveResult({ id, name, noId, reason, result }) {
+  async function saveResult({ id, name, noId, reason, result, strokes, strokeSize }) {
     if (!enabled) return { saved: false };
-    try {
-      const payload = {
-        name: name || null,
-        id: (!noId && id) ? id : null,
-        noId: !!noId,
-        score: result.score,
-        right: result.right,
-        wrong: result.wrong,
-        blank: result.blank,
-        answers: result.rows.map(r => ({ no: r.no, mine: r.mine, ok: r.ok })),
-        usedMs: result.used,
-        reason: reason,
-        submittedAt: firebase.firestore.FieldValue.serverTimestamp()
-      };
+    const basePayload = {
+      name: name || null,
+      id: (!noId && id) ? id : null,
+      noId: !!noId,
+      score: result.score,
+      right: result.right,
+      wrong: result.wrong,
+      blank: result.blank,
+      answers: result.rows.map(r => ({ no: r.no, mine: r.mine, ok: r.ok })),
+      usedMs: result.used,
+      reason: reason,
+      submittedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    async function commit(payload) {
       const batch = db.batch();
       if (!noId && id) batch.set(db.collection(COLLECTION).doc(idDocKey(id)), payload);
       if (name) batch.set(db.collection(COLLECTION).doc(nameDocKey(name)), payload);
       // 이름·학번이 전혀 없는 별도 문서에 점수만 남겨 분포 조회 때 개인 식별 없이 쓴다
       batch.set(db.collection(SCORES_COLLECTION).doc(), { score: result.score });
       await batch.commit();
+    }
+
+    try {
+      await commit(Object.assign({ strokes: toFirestoreStrokes(strokes), strokeSize: strokeSize || {} }, basePayload));
       return { saved: true };
     } catch (e) {
-      return { saved: false, error: e };
+      // 필기량이 많아 Firestore 문서 용량(1MB)을 넘기는 등의 이유로 실패하면
+      // 필기 없이 채점 결과만이라도 남긴다(성적 보존이 우선이다).
+      try {
+        await commit(basePayload);
+        return { saved: true, strokesDropped: true };
+      } catch (e2) {
+        return { saved: false, error: e2 };
+      }
     }
   }
 
-  /* 전체 응시자의 점수만(익명) 가져온다. 순위·분포 그래프용. */
+  /* 전체 응시자의 점수만(익명) 가져온다. 순위·분포 그래프용. submissions 전체를
+     읽지 않고(필기 데이터까지 포함되어 무거워졌다) 점수만 담은 가벼운
+     scores 컬렉션에서 바로 가져온다. */
   async function fetchScores() {
     if (!enabled) return { ok: false, scores: [] };
     try {

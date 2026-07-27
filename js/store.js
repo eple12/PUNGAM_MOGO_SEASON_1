@@ -26,6 +26,7 @@ const Store = (() => {
       endAt: null,
       elapsedUsed: 0,
       strokes: {},                    // { 문항번호: [stroke, ...] }
+      strokeSize: {},                 // { 문항번호: {w,h} } — 필기 당시 캔버스 크기(제출 시 서버에 함께 보내 재생 배율을 맞춘다)
       verifyStrokes: [],
       fingerDraw: false,
       warned: [],
@@ -52,6 +53,7 @@ const Store = (() => {
       Object.keys(fresh).forEach(k => { if (s.answers && s.answers[k]) fresh[k] = s.answers[k]; });
       s.answers = fresh;
       s.strokes = s.strokes || {};
+      s.strokeSize = s.strokeSize || {};
       s.warned = s.warned || [];
       replace(s);
       return true;

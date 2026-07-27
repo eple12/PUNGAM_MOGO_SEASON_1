@@ -277,8 +277,12 @@ const App = (() => {
     if (Remote.enabled) {
       Remote.saveResult({
         id: S.student.id, name: S.student.name, noId: S.student.noId,
-        reason, result: S.result
-      }).then(r => { if (!r.saved) U.toast('결과를 서버에 저장하지 못했습니다. 화면을 캡쳐해 두십시오.', 4000); });
+        reason, result: S.result,
+        strokes: S.strokes, strokeSize: S.strokeSize
+      }).then(r => {
+        if (!r.saved) U.toast('결과를 서버에 저장하지 못했습니다. 화면을 캡쳐해 두십시오.', 4000);
+        else if (r.strokesDropped) U.toast('필기량이 많아 필기는 서버에 저장하지 못했습니다.', 4000);
+      });
     }
 
     if (reason === 'time') {

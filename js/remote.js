@@ -97,10 +97,17 @@ const Remote = (() => {
     }
   }
 
-  /* 채점 결과를 저장한다. 학번 문서·이름 문서 두 곳에 같은 내용을 써서
-     이후 어느 쪽으로 조회해도 중복 확인에 걸리게 한다. */
+  /* 채점 결과를 저장한다. 학번 문서·이름 문서 "둘 중 하나(학번이 있으면 학번
+     문서)"에만 전체 내용(답안·필기 포함)을 쓴다. 나머지 한쪽엔 중복 응시
+     확인이 "그 이름/학번으로도" 걸리도록 존재만 표시하는 가벼운 문서
+     (dup:true, 실제 답안·필기 없음)만 남긴다 — 예전엔 두 문서 모두에 전체
+     내용을 복사해서, 필기가 있는 제출은 저장 용량이 그대로 두 배가 됐었다. */
   async function saveResult({ id, name, noId, reason, result, strokes, strokeSize }) {
     if (!enabled) return { saved: false };
+    const hasId = !noId && !!id;
+    const canonicalKey = hasId ? idDocKey(id) : nameDocKey(name);
+    const markerKey = hasId && name ? nameDocKey(name) : null;   // 학번이 있고 이름도 있을 때만 필요
+
     const basePayload = {
       name: name || null,
       id: (!noId && id) ? id : null,
@@ -117,8 +124,13 @@ const Remote = (() => {
 
     async function commit(payload) {
       const batch = db.batch();
-      if (!noId && id) batch.set(db.collection(COLLECTION).doc(idDocKey(id)), payload);
-      if (name) batch.set(db.collection(COLLECTION).doc(nameDocKey(name)), payload);
+      batch.set(db.collection(COLLECTION).doc(canonicalKey), payload);
+      if (markerKey) {
+        batch.set(db.collection(COLLECTION).doc(markerKey), {
+          dup: true, id: payload.id, name: payload.name, noId: payload.noId,
+          submittedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
       // 이름·학번이 전혀 없는 별도 문서에 점수만 남겨 분포 조회 때 개인 식별 없이 쓴다
       batch.set(db.collection(SCORES_COLLECTION).doc(), { score: result.score });
       await batch.commit();

@@ -149,6 +149,42 @@ const App = (() => {
     });
   }
 
+  /* 응시 바로 직전(인적사항 작성 완료 시점)에 개인정보 수집·이용 동의와
+     생성형 AI 미사용·정답 미유포 서약을 받는다. 세 체크박스를 모두 체크해야
+     "확인" 버튼이 눌리도록, 모달을 띄운 뒤 버튼을 disabled 로 잠가 둔다. */
+  async function consentModal(name, noId, id) {
+    const body =
+      '<div class="consent">' +
+        '<h3 class="consent__title">개인정보 수집 및 이용 동의</h3>' +
+        '<ul class="consent__list">' +
+          '<li><b>이름·학번</b> — 상품 제공 및 본인 확인 목적으로 수집합니다.</li>' +
+          '<li><b>필기(펜) 데이터</b> — 답안 확인 및 이의 제기 대응 목적으로 수집합니다.</li>' +
+          '<li><b>최종 점수</b> — 다른 응시자에게는 공개되지 않으며, 전체 응시자 점수 분포(그래프)에만 반영됩니다.</li>' +
+        '</ul>' +
+        '<p class="consent__note">수집한 정보는 채점·상품 지급 목적으로만 쓰며, 동의하지 않으면 응시할 수 없습니다.</p>' +
+        '<label class="consent__check"><input type="checkbox" id="agreePrivacy"><span>위 개인정보 수집·이용에 동의합니다.</span></label>' +
+        '<label class="consent__check"><input type="checkbox" id="agreeNoAI"><span>시험 중 생성형 AI를 일체 사용하지 않을 것을 서약합니다.</span></label>' +
+        '<label class="consent__check"><input type="checkbox" id="agreeNoLeak"><span>문항 및 정답을 다른 사람에게 유포하지 않을 것을 서약합니다.</span></label>' +
+      '</div>' +
+      '<p class="mline"><b>' + name + '</b> · 학번 <b>' + (noId ? '해당 없음(비재학생)' : id) + '</b></p>' +
+      '<p>모두 동의하고 확인을 누르면 감독관 날인과 답안지 이용 안내(체험)를 거쳐 <b>' + CONFIG.durationMinutes + '분</b>의 시험이 시작됩니다. ' +
+      '이후에는 인적사항을 수정할 수 없습니다.</p>';
+
+    const p = U.modal({
+      title: '인적사항 작성을 마칩니다',
+      body,
+      buttons: [{ label: '취소', value: false }, { label: '확인', value: true, kind: 'primary' }]
+    });
+
+    const okBtn = U.el('#modalFoot .btn--primary');
+    okBtn.disabled = true;
+    const boxes = ['#agreePrivacy', '#agreeNoAI', '#agreeNoLeak'].map(sel => U.el(sel));
+    const refresh = () => { okBtn.disabled = !boxes.every(b => b.checked); };
+    boxes.forEach(b => b.addEventListener('change', refresh));
+
+    return p;
+  }
+
   let beginExamBusy = false;
   async function beginExam() {
     if (beginExamBusy) return;
@@ -172,13 +208,7 @@ const App = (() => {
       }
     }
 
-    const ok = await U.modal({
-      title: '인적사항 작성을 마칩니다',
-      body: '<p class="mline"><b>' + name + '</b> · 학번 <b>' + (noId ? '해당 없음(비재학생)' : id) + '</b></p>' +
-            '<p>확인을 누르면 감독관 날인과 답안지 이용 안내(체험)를 거쳐 <b>' + CONFIG.durationMinutes + '분</b>의 시험이 시작됩니다. ' +
-            '이후에는 인적사항을 수정할 수 없습니다.</p>',
-      buttons: [{ label: '취소', value: false }, { label: '확인', value: true, kind: 'primary' }]
-    });
+    const ok = await consentModal(name, noId, id);
     if (!ok) return;
 
     beginExamBusy = true;

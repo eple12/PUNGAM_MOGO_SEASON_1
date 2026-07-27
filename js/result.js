@@ -44,12 +44,13 @@ const Result = (() => {
     const root = U.el('#resultRoot');
     const pct = Math.round(res.score / CONFIG.totalScore * 100);
 
+    // 정답 자체는 화면에 내지 않는다(미리 유포될 위험). 채점은 하되 맞았는지
+    // 여부(O/X)와 자신이 쓴 답까지만 보여준다.
     const table = res.rows.map(r =>
       '<tr class="' + (r.ok ? 'ok' : (r.mine === null ? 'na' : 'no')) + '">' +
         '<td class="c">' + r.no + '</td>' +
         '<td class="c">' + r.points + '</td>' +
         '<td>' + r.author + '</td>' +
-        '<td class="c">' + show(r.answer, r.type) + '</td>' +
         '<td class="c">' + show(r.mine, r.type) + '</td>' +
         '<td class="c mark">' + (r.ok ? 'O' : (r.mine === null ? '/' : 'X')) + '</td>' +
       '</tr>').join('');
@@ -125,7 +126,7 @@ const Result = (() => {
           '<h2 class="rcard__title">문항별 채점표</h2>' +
           '<div class="rtable-wrap">' +
             '<table class="rtable">' +
-              '<thead><tr><th class="c">번호</th><th class="c">배점</th><th>출제자</th><th class="c">정답</th><th class="c">내 답</th><th class="c">채점</th></tr></thead>' +
+              '<thead><tr><th class="c">번호</th><th class="c">배점</th><th>출제자</th><th class="c">내 답</th><th class="c">채점</th></tr></thead>' +
               '<tbody>' + table + '</tbody>' +
             '</table>' +
           '</div>' +

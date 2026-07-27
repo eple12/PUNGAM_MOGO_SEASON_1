@@ -92,7 +92,7 @@ b,strong{font-weight:700}
 }
 .modal.is-open{display:flex}
 .modal__box{
-  width:min(440px,100%);background:#fff;border-radius:14px;padding:26px 26px 18px;
+  width:min(440px,100%);max-height:88vh;overflow:auto;background:#fff;border-radius:14px;padding:26px 26px 18px;
   box-shadow:0 24px 60px rgba(10,18,30,.28);
 }
 .modal__title{margin:0 0 12px;font-size:19px;font-weight:700;letter-spacing:-.02em}
@@ -102,6 +102,17 @@ b,strong{font-weight:700}
 .modal__body .mwarn{color:var(--danger);font-weight:600}
 .modal__body .mok{color:var(--ok);font-weight:600}
 .modal__foot{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.modal__foot .btn[disabled]{opacity:.4;cursor:not-allowed}
+
+/* ---------------- 동의 사항(개인정보·서약, 인적사항 완료 모달) ---------------- */
+.consent{background:var(--navy-soft, #eef1f6);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.consent__title{margin:0 0 8px;font-size:14.5px;font-weight:700;color:var(--ink)}
+.consent__list{margin:0 0 8px;padding-left:18px;font-size:13.5px;line-height:1.6;color:var(--ink-2)}
+.consent__list li{margin-bottom:2px}
+.consent__note{margin:0 0 10px;font-size:12.5px;color:var(--ink-3,#8a93a3)}
+.consent__check{display:flex;align-items:flex-start;gap:8px;font-size:13.5px;color:var(--ink);padding:6px 0;cursor:pointer}
+.consent__check input{margin-top:3px;width:16px;height:16px;flex:none;accent-color:var(--navy,#2a4)}
+.consent__check + .consent__check{border-top:1px solid rgba(0,0,0,.06)}
 
 /* ---------------- 전체화면 버튼(모든 화면 공통) ---------------- */
 .fsbtn{

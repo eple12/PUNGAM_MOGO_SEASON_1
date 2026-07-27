@@ -29,7 +29,8 @@ const Exam = (() => {
   const DEBUG = IS_IPADOS || /(?:^|[?&])dbg=1\b/.test(location.search);
   // 로그 맨 위에 이 값을 찍어서, 캐시된 옛날 스크립트로 테스트한 건 아닌지
   // 로그만 보고 바로 확인할 수 있게 한다. 새 진단 코드를 추가할 때마다 올린다.
-  const BUILD_TAG = 'dbg-build-6(ts-relax,doc-capture,touchstart,scroll-toggle)';
+  const BUILD_TAG = 'dbg-build-7(ts-relax,doc-capture,touchstart,scroll-toggle,capture-toggle)';
+  let DBG_NO_CAPTURE = false;   // 진단 토글: 켜지면 setPointerCapture() 자체를 안 부른다
   let dbgLines = [];
   let dbgEl = null;
   let dbgT0 = performance.now();
@@ -67,7 +68,9 @@ const Exam = (() => {
     const bClear = btn('지우기');
     const bHide = btn('숨기기/보이기');
     const bScroll = btn('①네이티브 스크롤 끔');
-    bar.appendChild(bCopy); bar.appendChild(bClear); bar.appendChild(bHide); bar.appendChild(bScroll);
+    const bCapture = btn('②setPointerCapture 끔');
+    bar.appendChild(bCopy); bar.appendChild(bClear); bar.appendChild(bHide);
+    bar.appendChild(bScroll); bar.appendChild(bCapture);
     wrap.appendChild(panel);
     wrap.appendChild(bar);
     document.body.appendChild(wrap);
@@ -108,6 +111,13 @@ const Exam = (() => {
       scroll.style.overflow = willHide ? 'hidden' : '';
       bScroll.style.background = willHide ? '#7a1f1f' : '#222';
       dbg('진단: #paperScroll overflow → ' + (willHide ? 'hidden (네이티브 스크롤 제거됨, 스크롤 안 됨/의도됨)' : '원래대로(auto)'));
+    });
+    // 가설 검증용: setPointerCapture() 호출 직후~해제 사이의 내부 상태 때문에, 그
+    // 포인터가 끝나고 아주 짧은 시간 안에 새로 닿는 접촉이 씹히는 건 아닌지 확인한다.
+    bCapture.addEventListener('click', () => {
+      DBG_NO_CAPTURE = !DBG_NO_CAPTURE;
+      bCapture.style.background = DBG_NO_CAPTURE ? '#7a1f1f' : '#222';
+      dbg('진단: setPointerCapture() 호출 ' + (DBG_NO_CAPTURE ? '끔' : '다시 켬'));
     });
   }
 
@@ -321,7 +331,9 @@ const Exam = (() => {
           if (tool === 'eraser') { act = 'erase'; ink.eraseAt(x0, y0); }
           else { act = 'draw'; ink.begin(x0, y0, e.pressure || 0.5); dbg('  → begin() 호출, 새 획 시작 p=' + (e.pressure || 0.5)); }
           drawId = e.pointerId;
-          try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 캡처 실패해도 필기는 이어진다 */ }
+          if (!DBG_NO_CAPTURE) {
+            try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 캡처 실패해도 필기는 이어진다 */ }
+          }
         }
         e.preventDefault();
         return;

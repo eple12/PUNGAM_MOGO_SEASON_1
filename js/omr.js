@@ -60,28 +60,21 @@ function buildSheet(host, mode) {
     return '<div class="idcol" data-idcol="' + i + '">' + rows + '</div>';
   }
 
-  /* 자리 묶음(학년·반·번호)과 그 위 라벨이 같은 폭을 갖게 한다.
-     묶음 안쪽 칸 사이 간격을 flex-basis 로 먼저 확보한 뒤 남은 폭을 자릿수에
-     비례해 나누므로, 묶음이 몇 자리든 숫자 칸 하나의 폭은 모두 같아진다. */
-  const ID_GAP = 4;                        // .idgroup 의 gap 과 반드시 같아야 한다
-  const idFlex = g => 'flex:' + g + ' 1 ' + (ID_GAP * (g - 1)) + 'px';
-
+  /* 학년·반·번호를 답란의 문항 칸(qcol)처럼 각각 라벨 헤더를 가진 작은
+     상자 하나로 묶는다. 실제 답안지에 있던 "–" 구분선 대신, 상자 테두리
+     자체로 묶음을 구분한다. */
   function idBlock() {
-    let cols = '';
     let cursor = 0;
-    CONFIG.idGroups.forEach((g, gi) => {
+    const groups = CONFIG.idGroups.map((g, gi) => {
       const digits = (CONFIG.idGroupDigits && CONFIG.idGroupDigits[gi]) || [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
       let inner = '';
       for (let k = 0; k < g; k++) { inner += idColumn(cursor, digits); cursor++; }
-      cols += '<div class="idgroup" style="' + idFlex(g) + '">' + inner + '</div>';
-      if (gi < CONFIG.idGroups.length - 1) cols += '<div class="iddash">–</div>';
-    });
-    let labels = '';
-    CONFIG.idGroups.forEach((g, gi) => {
-      labels += '<div class="idlabel" style="' + idFlex(g) + '">' + CONFIG.idGroupLabels[gi] + '</div>';
-      if (gi < CONFIG.idGroups.length - 1) labels += '<div class="idlabel idlabel--dash"></div>';
-    });
-    return '<div class="idlabels">' + labels + '</div><div class="idcols">' + cols + '</div>';
+      return '<div class="idgroup">' +
+        '<div class="idgroup__hd">' + CONFIG.idGroupLabels[gi] + '</div>' +
+        '<div class="idgroup__body">' + inner + '</div>' +
+      '</div>';
+    }).join('');
+    return '<div class="idcols">' + groups + '</div>';
   }
 
   function ansColumn(q) {
@@ -155,7 +148,7 @@ function buildSheet(host, mode) {
             '<div class="obox__hd">성 명</div>' +
             '<div class="obox__bd">' +
               '<input class="wfield" id="nameField" type="text" maxlength="12" placeholder="실명을 입력하십시오" autocomplete="off" spellcheck="false">' +
-              '<div class="wfield__note">반드시 <b>실명</b>으로 작성하십시오.</div>' +
+              '<div class="wfield__note">본인확인을 위해 반드시 <b>실명</b>으로 작성하십시오.</div>' +
             '</div>' +
             '<div class="obox__hd obox__hd--rule">학 번</div>' +
             '<div class="obox__bd">' +

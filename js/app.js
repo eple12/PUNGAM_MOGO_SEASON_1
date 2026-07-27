@@ -12,6 +12,7 @@ const App = (() => {
   function screen(id) {
     U.els('.screen').forEach(s => s.classList.toggle('is-active', s.id === id));
     window.scrollTo(0, 0);
+    Viewport.sync(id);
   }
 
   /* ---------------- 시작 페이지 ---------------- */
@@ -19,6 +20,8 @@ const App = (() => {
     const shortN = QUESTIONS.filter(q => q.type === 'short').length;
     const choiceN = QUESTIONS.length - shortN;
 
+    document.title = CONFIG.examTitle + ' · ' + CONFIG.areaName;
+    U.el('#introTitle').textContent = CONFIG.examTitle;
     U.el('#introSub').textContent = CONFIG.areaName + ' · ' + CONFIG.areaSub;
     U.el('#introMeta').innerHTML = [
       ['문항 수', QUESTIONS.length + '문항'],
@@ -95,7 +98,60 @@ const App = (() => {
     Store.save(true);
   }
 
+  /* 인적사항 작성을 마친 직후, 감독관 날인란으로 부드럽게 스크롤해
+     도장이 찍히는 모습을 미리 보여 준다. 실제 도장(is-signed)은 시험이
+     정말 시작된 뒤에만 찍히므로, 여기서는 별도의 is-signing 클래스로만
+     같은 애니메이션을 재생한다(상태는 아무것도 바꾸지 않는다). */
+  function stampPreview() {
+    return new Promise(resolve => {
+      const supBox = sheet && sheet.root && sheet.root.querySelector('.obox--sup');
+      if (!supBox) { resolve(); return; }
+      supBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => {
+        supBox.classList.add('is-stampfocus');
+        sheet.root.classList.add('is-signing');
+        setTimeout(() => {
+          supBox.classList.remove('is-stampfocus');
+          sheet.root.classList.remove('is-signing');
+          resolve();
+        }, 2500);
+      }, 550);
+    });
+  }
+
+  /* 튜토리얼에서 '완료 · 시험 시작'을 누른 직후, 바로 문항으로 넘기지 않고
+     "시험을 시작합니다" 와 함께 5·4·3·2·1 을 1초 간격으로 보여 준 뒤 넘어간다. */
+  function runCountdown() {
+    return new Promise(resolve => {
+      const ov = U.el('#countdownOverlay');
+      const numEl = U.el('#countdownNum');
+      const bump = n => {
+        numEl.textContent = n;
+        numEl.classList.remove('is-pop');
+        void numEl.offsetWidth;              // 리플로우를 강제해 애니메이션을 다시 재생시킨다
+        numEl.classList.add('is-pop');
+      };
+      let n = 5;
+      bump(n);
+      ov.classList.add('is-open');
+      ov.setAttribute('aria-hidden', 'false');
+      const timer = setInterval(() => {
+        n--;
+        if (n <= 0) {
+          clearInterval(timer);
+          ov.classList.remove('is-open');
+          ov.setAttribute('aria-hidden', 'true');
+          setTimeout(resolve, 220);
+          return;
+        }
+        bump(n);
+      }, 1000);
+    });
+  }
+
+  let beginExamBusy = false;
   async function beginExam() {
+    if (beginExamBusy) return;
     const name = (S.student.name || '').trim();
     const noId = !!S.student.noId;
     const id = noId ? '' : (S.idMarks.every(d => d != null) ? S.idMarks.join('') : '');
@@ -117,20 +173,29 @@ const App = (() => {
     }
 
     const ok = await U.modal({
-      title: '시험을 시작합니다',
+      title: '인적사항 작성을 마칩니다',
       body: '<p class="mline"><b>' + name + '</b> · 학번 <b>' + (noId ? '해당 없음(비재학생)' : id) + '</b></p>' +
-            '<p>확인을 누르면 <b>' + CONFIG.durationMinutes + '분</b>의 시험 시간이 시작됩니다. 시작한 뒤에는 인적사항을 수정할 수 없습니다.</p>',
-      buttons: [{ label: '취소', value: false }, { label: '시험 시작', value: true, kind: 'primary' }]
+            '<p>확인을 누르면 감독관 날인과 답안지 이용 안내(체험)를 거쳐 <b>' + CONFIG.durationMinutes + '분</b>의 시험이 시작됩니다. ' +
+            '이후에는 인적사항을 수정할 수 없습니다.</p>',
+      buttons: [{ label: '취소', value: false }, { label: '확인', value: true, kind: 'primary' }]
     });
     if (!ok) return;
 
+    beginExamBusy = true;
     S.student.name = name;
     S.student.id = id;
+    Store.save(true);
+
+    await stampPreview();
+    await Tutorial.run();
+    await runCountdown();
+
     S.startedAt = Date.now();
     S.endAt = S.startedAt + CONFIG.durationMinutes * 60000;
     S.phase = 'exam';
     S.warned = [];
     Store.save(true);
+    beginExamBusy = false;
     enterExam();
   }
 
@@ -258,7 +323,16 @@ const App = (() => {
     // iOS Safari 등 일부 브라우저는 임의 엘리먼트의 전체화면 API를 지원하지 않는다
     if (!document.documentElement.requestFullscreen) return;
     btn.hidden = false;
-    const sync = () => btn.classList.toggle('is-full', !!document.fullscreenElement);
+    const sync = () => {
+      btn.classList.toggle('is-full', !!document.fullscreenElement);
+      /* 일부 모바일 브라우저는 전체화면 진입/해제 시 강제 데스크톱 뷰포트
+         (width=1080 고정) 를 무시하고 자체적으로 뷰포트를 다시 계산해,
+         모처럼 데스크톱 레이아웃으로 맞춰 둔 화면이 좁은 화면으로 되돌아가
+         버리는 경우가 있다. 확실한 해결책은 아니지만, 상태가 바뀔 때마다
+         지금 보이는 화면 기준으로 뷰포트를 다시 강제해 본다. */
+      const active = document.querySelector('.screen.is-active');
+      if (active) Viewport.sync(active.id);
+    };
     btn.addEventListener('click', () => {
       if (document.fullscreenElement) document.exitFullscreen();
       else document.documentElement.requestFullscreen().catch(() => {});
@@ -270,8 +344,13 @@ const App = (() => {
   /* 응시 시작 시점에 자동으로 전체화면 진입을 시도한다.
      브라우저 정책상 사용자 클릭 이벤트 처리 중(비동기 대기 없이)에만 허용되므로
      반드시 클릭 핸들러 맨 앞에서 동기적으로 호출해야 한다. 실패해도(권한 거부 등)
-     응시 자체는 그대로 진행한다. */
+     응시 자체는 그대로 진행한다.
+     휴대폰에서는 전체화면 진입 시 강제해 둔 데스크톱 뷰포트가 다시 좁은
+     화면으로 풀려 버리는 기기가 있어(위 sync() 참고), 아예 자동 진입을
+     걸지 않는다 — 수동 전체화면 버튼은 그대로 남아 있으니 필요하면 직접
+     누를 수 있다. */
   function enterFullscreen() {
+    if (Viewport.isPhone) return;
     if (document.fullscreenElement) return;
     if (!document.documentElement.requestFullscreen) return;
     document.documentElement.requestFullscreen().catch(() => {});

@@ -54,7 +54,7 @@
   font-size:12px;font-weight:600;color:var(--ink-3);background:#FAFBFC;
   border-bottom:1px solid var(--line-2);white-space:nowrap;
 }
-.rtable td.c{text-align:center}
+.rtable th.c,.rtable td.c{text-align:center}
 .rtable td.mark{font-weight:700;font-size:14px}
 .rtable tr.ok td.mark{color:var(--ok)}
 .rtable tr.no td.mark{color:var(--danger)}

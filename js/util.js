@@ -178,17 +178,24 @@ const U = (() => {
     if (modalResolve) { modalResolve(v); modalResolve = null; }
   }
 
-  /* ---------- 토스트 ---------- */
+  /* ---------- 토스트 ----------
+     한 번에 하나만 보여준다. 이미 뜬 토스트가 사라지는 중(is-on 을 뗀 뒤
+     실제로 hidden 이 되기까지의 260ms 페이드아웃 구간)에 새 토스트가 오면,
+     그 감춤 예약(아래 hideTimer)까지 반드시 같이 취소해야 한다. 그렇지
+     않으면 새 토스트를 막 띄웠는데 직전 토스트의 감춤 타이머가 뒤늦게
+     실행되며 새 토스트까지 함께 사라져 버린다. */
   let toastTimer = null;
+  let toastHideTimer = null;
   function toast(msg, ms) {
     const t = el('#toast');
+    clearTimeout(toastTimer);
+    clearTimeout(toastHideTimer);
     t.textContent = msg;
     t.hidden = false;
     requestAnimationFrame(() => t.classList.add('is-on'));
-    clearTimeout(toastTimer);
     toastTimer = setTimeout(() => {
       t.classList.remove('is-on');
-      setTimeout(() => { t.hidden = true; }, 260);
+      toastHideTimer = setTimeout(() => { t.hidden = true; }, 260);
     }, ms || 2200);
   }
 

@@ -118,8 +118,9 @@ const Exam = (() => {
 
   function setFingerDraw(on) {
     S.fingerDraw = on;
+    // 글자를 바꾸면(예: "손가락 필기 켬") 버튼 폭이 달라져 옆 버튼들이 밀리므로
+    // 라벨은 그대로 두고 켜짐 여부는 채움(is-on) 색으로만 표시한다.
     U.el('#toolFinger').classList.toggle('is-on', on);
-    U.el('#toolFinger').textContent = on ? '손가락 필기 켬' : '손가락 필기';
     Store.save();
   }
 

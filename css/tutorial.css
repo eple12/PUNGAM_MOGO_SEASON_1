@@ -1,0 +1,63 @@
+/* =====================================================================
+ * 응시 안내(체험) 화면 — 실제 시험 화면과 같은 부품(topbar·paper·OMR)을
+ * 재사용하되, 독립된 연습 문제 하나만 다루는 화면이다.
+ * ===================================================================== */
+
+#screenTutorial.is-active{position:relative;display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+
+.tut-omr{max-width:490px;margin:0 auto;padding:16px 16px 20px}
+/* 실제 답안지의 .ansgrid 는 grid-template-columns:repeat(10,1fr) 로 문항 칸
+   폭을 넉넉하게(데스크톱 기준 약 112px) 늘려 채운다. 여기서는 문항이 2개뿐이라
+   .qcol 이 내용물(마킹 칸) 폭에만 딱 맞게 줄어들어(약 53px) 실제보다 훨씬
+   좁고 답답해 보였다. 실제와 같은 간격 · 칸 폭이 되도록 gap 과 칸 폭을 그대로
+   맞춘다. */
+.tut-ansgrid{display:flex;justify-content:center;gap:7px;padding:6px 0 4px}
+.tut-ansgrid .qcol{width:112px;flex:none}
+
+/* 안내 카드 */
+.tut-guide{
+  position:fixed;left:50%;bottom:22px;transform:translateX(-50%);
+  z-index:200;width:min(560px,calc(100% - 32px));
+  background:#fff;border:1px solid var(--line);border-radius:14px;
+  box-shadow:0 18px 46px rgba(16,24,40,.22);
+  padding:16px 20px 16px;
+}
+.tut-guide__step{font-size:11px;font-weight:700;color:var(--ink-3);letter-spacing:.05em;margin-bottom:4px}
+.tut-guide__title{font-size:15.5px;font-weight:800;color:var(--navy);margin-bottom:6px;letter-spacing:-.01em}
+.tut-guide__body{font-size:13.5px;line-height:1.65;color:var(--ink-2)}
+.tut-guide__foot{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-top:14px}
+
+/* 이번 단계에서 눈여겨봐야 할 컨트롤을 은은하게 맥동시켜 가리킨다.
+   position/z-index 는 절대 건드리지 않는다 — #tutOmrTab 처럼 이미
+   position:absolute 인 요소에 같은 우선순위로 position:relative 를 얹으면
+   배치가 깨져(문서 흐름으로 떨어져) 탭이 화면 아래로 밀려나 버린다.
+   outline 은 레이아웃/배치에 영향을 주지 않아 이 문제가 없다. */
+.tut-spot{border-radius:10px;animation:tutPulse 1.4s ease-in-out infinite}
+@keyframes tutPulse{
+  0%,100%{outline:3px solid rgba(29,111,216,.38);outline-offset:2px}
+  50%{outline:7px solid rgba(29,111,216,.14);outline-offset:2px}
+}
+
+@media (max-width:900px){
+  .tut-guide{bottom:12px;padding:14px 16px 14px}
+}
+
+/* 튜토리얼 완료 → 실제 시험 시작 사이의 "시험을 시작합니다" 3·2·1 */
+.countdown-overlay{
+  position:fixed;inset:0;z-index:300;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  background:rgba(12,16,26,.74);
+  opacity:0;pointer-events:none;transition:opacity .25s ease;
+}
+.countdown-overlay.is-open{opacity:1;pointer-events:auto}
+.countdown-overlay__title{color:#fff;font-size:20px;font-weight:700;letter-spacing:-.01em}
+.countdown-overlay__num{
+  color:#fff;font-size:104px;font-weight:800;line-height:1;
+  font-variant-numeric:tabular-nums;
+}
+.countdown-overlay__num.is-pop{animation:countPop .8s cubic-bezier(.2,.8,.3,1)}
+@keyframes countPop{
+  0%{transform:scale(1.5);opacity:0}
+  30%{opacity:1}
+  100%{transform:scale(1);opacity:1}
+}

@@ -24,9 +24,17 @@
   text-align:center;padding-bottom:34px;margin-bottom:38px;
   border-bottom:1px solid var(--line);
 }
+.intro__logo{
+  display:block;width:168px;height:168px;object-fit:contain;
+  margin:0 auto 18px;
+}
 .intro__title{
   margin:0;font-family:var(--font-exam);
-  font-size:60px;font-weight:900;letter-spacing:-.01em;line-height:1.15;color:var(--navy);
+  /* 뷰포트 폭에 맞춰 매끄럽게 줄어들어, 제목 글자 수가 늘어나도(예: "실수킬러"
+     추가) 좁은 휴대폰 화면에서 줄바꿈되지 않고 한 줄로 들어가게 한다. */
+  font-size:clamp(20px, 5vw, 60px);
+  font-weight:900;letter-spacing:-.01em;line-height:1.15;color:var(--navy);
+  word-break:keep-all;
 }
 .intro__title::before{content:'【 '}
 .intro__title::after{content:' 】'}
@@ -44,6 +52,31 @@
 .intro__meta li:first-child{border-left:none}
 .intro__meta span{font-size:12.5px;color:var(--ink-3);letter-spacing:.02em}
 .intro__meta b{font-size:15.5px;font-weight:700;color:var(--ink)}
+
+/* 기기 안내 — 이 화면(첫 페이지)에서 가장 먼저 눈에 띄어야 하는 정보라
+   유의사항 카드 안의 자잘한 문구가 아니라 제목 바로 아래 큼직한 띠로 둔다. */
+.device-banner{
+  display:flex;align-items:center;gap:16px;
+  margin:0 auto 28px;max-width:820px;padding:16px 24px;
+  background:linear-gradient(180deg,#FFF8E8,#FFF3D6);
+  border:2px solid var(--gold);border-radius:12px;
+  box-shadow:0 6px 20px rgba(201,150,44,.18);
+}
+.device-banner__icon{
+  flex:none;color:#8A6110;
+  animation:deviceRotate 2.6s ease-in-out infinite;
+}
+@keyframes deviceRotate{
+  0%,15%,100%{transform:rotate(0deg)}
+  6%{transform:rotate(-8deg)}
+  11%{transform:rotate(4deg)}
+}
+.device-banner__body{display:flex;flex-direction:column;gap:4px}
+.device-banner__body strong{
+  font-size:17.5px;font-weight:800;letter-spacing:-.01em;color:#7A5308;
+}
+.device-banner__body span{font-size:13.5px;line-height:1.6;color:#8A6110}
+.device-banner__body span b{font-weight:800;color:#7A5308}
 
 .intro__grid{
   display:grid;grid-template-columns:1fr 1fr;gap:20px;
@@ -127,11 +160,15 @@
 
 @media (max-width:900px){
   .intro{padding:44px 20px 64px}
-  .intro__title{font-size:34px}
   .intro__grid{grid-template-columns:1fr}
   .authors{grid-template-columns:repeat(2,1fr)}
+  .device-banner{flex-direction:column;text-align:center;padding:16px 18px}
 }
 @media (max-width:560px){
   .authors{grid-template-columns:1fr}
-  .intro__meta li{padding:0 14px}
+  /* 4개(문항 수 · 배점 · 시험 시간 · 유형)를 한 줄에 우겨넣지 않고 처음부터
+     2×2 로 고정한다. flex-wrap 에 맡기면 좁은 화면에서 마지막 한 칸만
+     혼자 다음 줄로 떨어져 테두리만 남은 것처럼 어색해 보이기 때문이다. */
+  .intro__meta{display:grid;grid-template-columns:repeat(2,1fr);gap:16px 0;justify-items:center}
+  .intro__meta li{padding:0;border-left:none}
 }

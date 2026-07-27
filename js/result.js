@@ -125,7 +125,7 @@ const Result = (() => {
           '<h2 class="rcard__title">문항별 채점표</h2>' +
           '<div class="rtable-wrap">' +
             '<table class="rtable">' +
-              '<thead><tr><th>번호</th><th>배점</th><th>출제자</th><th>정답</th><th>내 답</th><th>채점</th></tr></thead>' +
+              '<thead><tr><th class="c">번호</th><th class="c">배점</th><th>출제자</th><th class="c">정답</th><th class="c">내 답</th><th class="c">채점</th></tr></thead>' +
               '<tbody>' + table + '</tbody>' +
             '</table>' +
           '</div>' +
@@ -134,7 +134,7 @@ const Result = (() => {
         '<footer class="rfoot">' +
           '<button class="btn btn--outline" id="btnReview" type="button">문제지 다시 보기</button>' +
           '<button class="btn btn--outline" id="btnSheet" type="button">내 답안지 보기</button>' +
-          '<button class="btn btn--text" id="btnRestart" type="button">기록 지우고 처음으로</button>' +
+          '<button class="btn btn--outline" id="btnRestart" type="button">기록 지우고 처음으로</button>' +
         '</footer>' +
       '</div>';
 

@@ -138,21 +138,28 @@
   white-space:nowrap;touch-action:manipulation;
 }
 .idskip.is-on{background:var(--omr-ink);border-color:var(--omr-ink);color:#fff}
-.omr.is-noid .idcols{opacity:.35;pointer-events:none}
 
-.idlabels{display:flex;gap:5px;margin:9px 0 3px;font-size:10.5px;font-weight:700}
-.idlabel{text-align:center}
-.idlabel--dash{width:11px;flex:none}
-.idcols{display:flex;gap:5px;align-items:stretch}
-.idgroup{display:flex;gap:4px}   /* 폭은 idFlex() 가 인라인으로 지정한다 */
-.iddash{
-  width:11px;flex:none;display:flex;align-items:center;justify-content:center;
-  font-size:13px;font-weight:800;
+/* 학년·반·번호 묶음 — 답란의 문항 칸(.qcol)과 같은 언어로 디자인한다.
+   묶음마다 하나의 작은 상자(.idgroup)를 이루고, 그 안에 라벨 헤더와
+   숫자 칸들이 들어간다. 실제 답안지의 "–" 구분선 없이, 묶음 상자 자체의
+   테두리로 학년/반/번호를 구분한다. 마킹 칸이 원이 아니라 폭이 좁은 알약
+   모양이라 칸(.idcol)은 그 폭에 딱 맞춘 고정 폭만 갖고, 묶음들 전체는
+   가운데로 모아(justify-content:center) 남는 폭이 한쪽으로 쏠리지 않고
+   상자 바깥 여백으로만 고르게 빠지게 한다. */
+.idcols{display:flex;gap:10px;justify-content:center;margin-top:9px}
+.idgroup{
+  flex:none;border:1.6px solid var(--omr-ink);border-radius:5px;overflow:hidden;
+  background:rgba(255,255,255,.3);
 }
-.idcol{
-  flex:1;border:1.2px solid var(--omr-ink-2);border-radius:4px;padding:3px 2px;background:rgba(255,255,255,.4);
+.idgroup__hd{
+  background:var(--omr-soft);border-bottom:1.4px solid var(--omr-ink);
+  text-align:center;font-size:11px;font-weight:800;padding:3px 0;white-space:nowrap;
 }
+.idgroup__body{display:flex;padding:3px 3px 4px}
+.idcol{flex:none;width:calc(var(--bub) * .56 + 12px);padding:0 2px}
+.idcol + .idcol{border-left:1px dashed var(--omr-ink-2)}
 .idrow{padding:1px 0}
+.omr.is-noid .idcols{opacity:.35;pointer-events:none}
 
 /* 문형 */
 .formbox{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
@@ -176,12 +183,20 @@
   width:44px;height:44px;
   mix-blend-mode:multiply;
 }
-.omr.is-signed .sup__seal{
+.omr.is-signed .sup__seal,
+.omr.is-signing .sup__seal{
   display:block;
   transform:translate(-50%,-54%) rotate(-8deg);
   animation:sealStamp .22s cubic-bezier(.2,.9,.3,1.2);
 }
 .sup__sealImg{display:block;width:100%;height:100%}
+
+/* 인적사항 작성을 마친 직후, 이 칸으로 스크롤해 도장 찍히는 모습을
+   미리 보여 줄 때 잠깐 두르는 강조 테두리(js/app.js 의 stampPreview 참고) */
+.obox--sup.is-stampfocus{
+  box-shadow:0 0 0 3px rgba(225,34,108,.4);
+  transition:box-shadow .25s ease;
+}
 @keyframes sealStamp{
   0%{transform:translate(-50%,-54%) rotate(-8deg) scale(1.7);opacity:0}
   60%{opacity:1}
@@ -291,11 +306,15 @@
   .ansgrid{grid-template-columns:repeat(6,1fr)}
   .omr__top{flex-direction:column}
   .omr__info{width:100%}
+  /* 태블릿 세로처럼 1100~720px 사이의 폭에서는 왼쪽 제목과 오른쪽 안내 문구가
+     한 줄에 나란히 있기엔 비좁아, 안내 문구(최대 52% 폭)의 문장이 중간에
+     줄바꿈되어 버렸다. 이 폭부터 아예 위아래로 쌓아 안내 문구가 가로 폭을
+     넉넉히 쓰게 한다. */
+  .omr__head{flex-direction:column;gap:8px}
+  .omr__headR{text-align:left;max-width:100%}
 }
 @media (max-width:720px){
   .ansgrid{grid-template-columns:repeat(4,1fr)}
-  .omr__head{flex-direction:column;gap:8px}
-  .omr__headR{text-align:left;max-width:100%}
   .sheet-scroll{padding:12px 10px 40px}
   .omr__top,.omr__ans{padding-left:12px;padding-right:12px}
   .ansveil{inset:4px 12px 0}

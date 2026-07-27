@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="format-detection" content="telephone=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>제1회 풍암 모의고사 · 수학 영역</title>
+<title>제1회 풍암 실수킬러 모의고사 · 수학 영역</title>
 
 <link rel="stylesheet" href="vendor/katex/katex.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css">
@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="css/intro.css">
 <link rel="stylesheet" href="css/exam.css">
 <link rel="stylesheet" href="css/omr.css">
+<link rel="stylesheet" href="css/tutorial.css">
 <link rel="stylesheet" href="css/result.css">
 </head>
 <body>
@@ -34,10 +35,22 @@
   <div class="intro">
 
     <header class="intro__head">
-      <h1 class="intro__title" id="introTitle">제1회 풍암 모의고사</h1>
+      <img class="intro__logo" src="img/team_logo.png" alt="">
+      <h1 class="intro__title" id="introTitle">제1회 풍암 실수킬러 모의고사</h1>
       <p class="intro__sub" id="introSub">수학 영역 · 대수</p>
       <ul class="intro__meta" id="introMeta"></ul>
     </header>
+
+    <div class="device-banner">
+      <svg class="device-banner__icon" viewBox="0 0 24 24" width="30" height="30" aria-hidden="true">
+        <rect x="3" y="6" width="18" height="12" rx="2.2" fill="none" stroke="currentColor" stroke-width="2"/>
+        <path d="M3 9.5h18M8 15.5h2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <div class="device-banner__body">
+        <strong>태블릿(갤럭시탭 · 아이패드)에서 응시하십시오</strong>
+        <span>가로·세로 화면 모두 사용할 수 있습니다. 다만 <b>시험 도중 화면 방향을 바꾸면 필기가 찌그러질 수 있으니</b> 한 번 정한 방향을 그대로 유지하는 것을 권장합니다.</span>
+      </div>
+    </div>
 
     <div class="intro__grid">
 
@@ -56,7 +69,7 @@
         <div class="steps" id="stepList"></div>
         <div class="notice" id="deviceNotice">
           <strong>기기 안내</strong>
-          <span>태블릿(갤럭시탭 · 아이패드) 가로 화면에 최적화되어 있습니다. 스타일러스가 있으면 펜으로 필기하고 손가락으로 화면을 넘기십시오. 스타일러스가 없으면 상단의 <em>손가락 필기</em>를 켠 뒤, 두 손가락으로 화면을 넘기면 됩니다.</span>
+          <span>태블릿(갤럭시탭 · 아이패드) <b>가로 화면</b>에 최적화되어 있습니다(세로 화면도 가능하나, 도중에 방향을 바꾸면 필기가 찌그러질 수 있어 권장하지 않습니다). 스타일러스가 있으면 펜으로 필기하고 손가락으로 화면을 넘기십시오. 스타일러스가 없으면 상단의 <em>손가락 필기</em>를 켠 뒤, 두 손가락으로 화면을 넘기면 됩니다.</span>
         </div>
       </article>
 
@@ -66,10 +79,10 @@
       <div class="intro__warn">
         <strong>주의사항</strong>
         <p><b>한 사람은 단 한 번만 응시할 수 있습니다.</b> 재응시는 허용되지 않습니다.</p>
+        <p><b>본인확인을 위해 반드시 실명으로 기입</b>해야 합니다.</p>
         <p>본 시험지의 무단 복제 및 배포를 금지합니다. 또한 문항 및 지문의 전부 또는 일부를 생성형 AI에 입력하는 행위를 금지합니다.</p>
       </div>
       <button class="btn btn--primary btn--xl" id="btnStart" type="button">응시 시작</button>
-      <p class="intro__footnote">응시 시작을 누르면 답안지(OMR)가 열리며 인적사항을 작성하게 됩니다. 인적사항 작성을 마치고 <b>시험 시작</b>을 누르는 순간부터 시간이 측정됩니다.</p>
       <p class="intro__credit" id="introCredit"></p>
     </footer>
 
@@ -90,7 +103,7 @@
       <span class="idbar__title">답안지 인적사항 작성</span>
     </div>
     <div class="idbar__right">
-      <button class="btn btn--text" id="btnBackIntro" type="button">안내로 돌아가기</button>
+      <button class="btn btn--outline" id="btnBackIntro" type="button">안내로 돌아가기</button>
       <button class="btn btn--primary" id="btnBeginExam" type="button">작성 완료 · 시험 시작</button>
     </div>
   </div>
@@ -98,6 +111,92 @@
     성명은 <b>반드시 실명</b>으로 작성하십시오. 학번과 성명이 확인되지 않은 답안은 채점되지 않습니다.
   </div>
   <div class="sheet-scroll" id="identitySheetHost"></div>
+</section>
+
+<!-- ============================ 응시 안내(체험) ============================ -->
+<section class="screen" id="screenTutorial">
+
+  <header class="topbar">
+    <div class="topbar__group topbar__group--left">
+      <div class="clock">
+        <span class="clock__label">연습 문제</span>
+        <span class="clock__time">체험용</span>
+      </div>
+    </div>
+
+    <div class="topbar__group topbar__group--center">
+      <button class="navbtn" id="tutPrev" type="button" aria-label="이전 문항">◀</button>
+      <button class="qpick" id="tutQpickBtn" type="button">
+        <span class="qpick__no" id="tutQpickNo">1</span><span class="qpick__of">/ 2</span>
+      </button>
+      <button class="navbtn" id="tutNext" type="button" aria-label="다음 문항">▶</button>
+    </div>
+
+    <div class="topbar__group topbar__group--right">
+      <div class="tools" role="group" aria-label="필기도구">
+        <button class="tool is-on" id="tutToolPen" type="button">펜</button>
+        <button class="tool" id="tutToolEraser" type="button">획 지우개</button>
+        <button class="tool tool--sep" id="tutToolFinger" type="button">손가락 필기</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 문항 목록(연습) -->
+  <div class="qlist" id="tutQlist" hidden>
+    <div class="qlist__head">
+      <span>문항 이동 · 마킹 현황</span>
+      <button class="btn btn--text" id="tutClearInk" type="button">현재 문항 필기 지우기</button>
+    </div>
+    <div class="qlist__grid" id="tutQlistGrid"></div>
+    <div class="qlist__legend">
+      <span><i class="dot dot--done"></i>마킹 완료</span>
+      <span><i class="dot dot--todo"></i>미마킹</span>
+      <span><i class="dot dot--cur"></i>현재 문항</span>
+    </div>
+  </div>
+
+  <div class="exam-body" id="tutPaperScroll">
+    <div class="paper" id="tutPaper">
+      <div class="paper__inner" id="tutPaperInner"></div>
+      <canvas class="ink" id="tutInkCanvas"></canvas>
+    </div>
+  </div>
+
+  <!-- OMR 귀퉁이 탭 -->
+  <button class="omr-tab" id="tutOmrTab" type="button" aria-label="연습용 답안지 열기">
+    <span class="omr-tab__word">OMR</span>
+    <span class="omr-tab__sub">답안지</span>
+  </button>
+
+  <!-- OMR 오버레이 -->
+  <div class="omr-overlay" id="tutOmrOverlay" aria-hidden="true">
+    <div class="omr-overlay__panel">
+      <div class="omr-overlay__bar">
+        <div class="omr-overlay__title">
+          <span class="omr-overlay__name">연습용 답안지</span>
+        </div>
+        <div class="omr-overlay__tools">
+          <span class="omr-overlay__toolLabel">필기구</span>
+          <button class="omrtool is-on" id="tutOmrToolPen" type="button">컴퓨터용 사인펜</button>
+          <button class="omrtool" id="tutOmrToolWhite" type="button">수정 테이프</button>
+          <button class="btn btn--outline btn--sm" id="tutOmrClose" type="button">닫기</button>
+        </div>
+      </div>
+      <div class="sheet-scroll" id="tutOmrHost"></div>
+    </div>
+  </div>
+
+  <!-- 단계별 안내 패널 -->
+  <div class="tut-guide" id="tutGuide">
+    <div class="tut-guide__step" id="tutGuideStep">1 / 3</div>
+    <div class="tut-guide__title" id="tutGuideTitle"></div>
+    <div class="tut-guide__body" id="tutGuideBody"></div>
+    <div class="tut-guide__foot">
+      <button class="btn btn--text" id="tutBack" type="button" hidden>이전</button>
+      <button class="btn btn--primary" id="tutNextBtn" type="button">다음</button>
+    </div>
+  </div>
+
 </section>
 
 <!-- ============================ 시험 화면 ============================ -->
@@ -197,6 +296,12 @@
 
 <div class="toast" id="toast" hidden></div>
 
+<!-- 튜토리얼 완료 → 실제 시험 시작 사이의 카운트다운 -->
+<div class="countdown-overlay" id="countdownOverlay" aria-hidden="true">
+  <div class="countdown-overlay__title">시험을 시작합니다</div>
+  <div class="countdown-overlay__num" id="countdownNum">3</div>
+</div>
+
 <!-- 모든 화면에서 쓰는 전체화면 전환 버튼 -->
 <button class="fsbtn" id="btnFullscreen" type="button" aria-label="전체화면 전환" hidden>
   <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
@@ -218,9 +323,11 @@
 <script src="js/questions.js"></script>
 <script src="js/questions.enc.js"></script>
 <script src="js/util.js"></script>
+<script src="js/viewport.js"></script>
 <script src="js/store.js"></script>
 <script src="js/ink.js"></script>
 <script src="js/omr.js"></script>
+<script src="js/tutorial.js"></script>
 <script src="js/exam.js"></script>
 <script src="js/result.js"></script>
 <script src="js/app.js"></script>

@@ -212,6 +212,7 @@ const Exam = (() => {
     let sc = null;                  // 스크롤 상태
     let flingId = 0;
     let penState = null;            // 현재 획의 { lastTs } — coalesced 역순 필터용
+    let strokeStats = null;         // 디버그 빌드: 현재 획의 raw/반영/드롭 사유 집계
 
     // 방금 끝난 획을 바로 확정하지 않고 아주 짧게 들고 있다가, 그 사이 새 펜 입력이
     // 들어오면 방금 끝난 획은 중복 아티팩트로 보고 버린다(IS_IPADOS 에서만 동작).
@@ -299,8 +300,9 @@ const Exam = (() => {
             pendingStroke = null;
           }
           penState = { lastTs: e.timeStamp };
+          strokeStats = { raw: 0, reflected: 0, dropPressure: 0, dropTs: 0 };
           if (tool === 'eraser') { act = 'erase'; ink.eraseAt(x0, y0); }
-          else { act = 'draw'; ink.begin(x0, y0, e.pressure || 0.5); dbg('  → begin() 호출, 새 획 시작'); }
+          else { act = 'draw'; ink.begin(x0, y0, e.pressure || 0.5); dbg('  → begin() 호출, 새 획 시작 p=' + (e.pressure || 0.5)); }
           drawId = e.pointerId;
           try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 캡처 실패해도 필기는 이어진다 */ }
         }
@@ -383,10 +385,17 @@ const Exam = (() => {
       // 그리는 중에는 pressure 가 정확히 0일 수 없으므로 그런 좌표는 버린다.
       if (DEBUG) {
         const raw = e.getCoalescedEvents ? e.getCoalescedEvents() : null;
-        const rawN = raw && raw.length ? raw.length : 1;
-        const list0 = U.penEvents(e, penState);
-        if (list0.length === 0 && rawN > 0) {
-          dbg('MOVE id=' + e.pointerId + ' → coalesced ' + rawN + '개가 전부 필터링되어 0개 반영됨(호버/역순 의심)');
+        const src = raw && raw.length ? raw : [e];
+        const list0 = U.penEvents(e, penState, src);   // 이 호출이 penState.lastTs 를 갱신한다
+        if (strokeStats) {
+          strokeStats.raw += src.length;
+          strokeStats.reflected += list0.length;
+          src.forEach(ev => {
+            if (list0.indexOf(ev) === -1) {
+              if (ev.pointerType === 'pen' && ev.pressure === 0) strokeStats.dropPressure++;
+              else strokeStats.dropTs++;
+            }
+          });
         }
         if (act === 'draw') {
           list0.forEach(ev => { const [x, y] = pt(ev); ink.extend(x, y, ev.pressure || 0.5); });
@@ -429,6 +438,11 @@ const Exam = (() => {
         if (DEBUG) {
           // 디버그 빌드: 중복-아티팩트 판정으로 인한 획 취소를 완전히 끈다.
           // 끝난 획은 곧바로 확정해서 저장한다.
+          if (strokeStats) {
+            dbg('  raw=' + strokeStats.raw + ' 반영=' + strokeStats.reflected +
+                ' 드롭(압력0)=' + strokeStats.dropPressure + ' 드롭(시간역순)=' + strokeStats.dropTs);
+            strokeStats = null;
+          }
           if (s) { dbg('  획 확정: 점 ' + s.p.length + '개'); saveStrokes(); Store.save(); }
           else dbg('  ink.end() 가 null 반환(점 0개 획?)');
         } else if (s && IS_IPADOS) {
@@ -463,6 +477,34 @@ const Exam = (() => {
       const hint = U.el('#scrollHint');
       if (hint && scroll.scrollTop > 40) hint.classList.add('is-off');
     }, { passive: true });
+
+    if (DEBUG) {
+      // 진단 전용: "씹힌 획" 구간에 로그가 아예 안 남는 문제를 추적하기 위해,
+      // canvas 의 pointerdown 보다 더 이른/다른 경로에서도 뭔가 잡히는지 본다.
+      //   - DOC-CAPTURE 도 안 찍힘 + TOUCHSTART 도 안 찍힘
+      //     → 브라우저/OS 제스처 인식기가 DOM 에 닿기 전에 접촉을 통째로 삼킨 것
+      //       (우리 코드로는 손 쓸 수 없는, 브라우저 쪽 문제일 가능성이 큼)
+      //   - DOC-CAPTURE 는 찍히는데 canvas 의 DOWN 로그는 안 찍힘
+      //     → 이벤트는 왔는데 다른 엘리먼트가 가로챔(우리 쪽에서 고칠 수 있는 문제)
+      //   - TOUCHSTART(레거시) 는 찍히는데 pointerdown 은 안 찍힘
+      //     → 이 브라우저의 Pointer Events 구현 자체가 결함이 있는 것
+      document.addEventListener('pointerdown', e => {
+        const tag = e.target && (e.target.id || e.target.className || e.target.tagName);
+        dbg('DOC-CAPTURE pointerdown type=' + e.pointerType + ' id=' + e.pointerId + ' target=' + tag);
+      }, true);
+      canvas.addEventListener('touchstart', e => {
+        const t = e.changedTouches[0];
+        dbg('TOUCHSTART(레거시) id=' + (t ? t.identifier : '?') +
+            ' x=' + (t ? t.clientX.toFixed(0) : '?') + ' y=' + (t ? t.clientY.toFixed(0) : '?') +
+            ' touches=' + e.touches.length);
+      }, { passive: true });
+      canvas.addEventListener('touchend', e => {
+        dbg('TOUCHEND(레거시) touches남음=' + e.touches.length);
+      }, { passive: true });
+      window.addEventListener('blur', () => dbg('WINDOW BLUR(포커스 잃음)'));
+      window.addEventListener('focus', () => dbg('WINDOW FOCUS'));
+      document.addEventListener('visibilitychange', () => dbg('VISIBILITY → ' + document.visibilityState));
+    }
   }
 
   /* ---------- 초기화 ---------- */

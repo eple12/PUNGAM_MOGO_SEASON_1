@@ -142,26 +142,26 @@ const Tutorial = (() => {
     // 스쳐도 무시되어(스크롤 등 기본 동작만 남는다) 오작동을 막는다.
     const canDraw = e => e.pointerType === 'pen' || e.pointerType === 'mouse' || (fingerDraw && e.pointerType === 'touch');
     let drawing = false;
-    let penState = null;
     canvas.addEventListener('pointerdown', e => {
+      // iOS 스크리블 등 시스템 제스처가 접촉을 가로채지 못하도록 가장 먼저 부른다
+      // (Excalidraw 가 애플펜슬 획 누락 버그를 고친 방식, PR #4705).
+      e.preventDefault();
       if (!canDraw(e)) return;
       drawing = true;
-      penState = { lastTs: e.timeStamp };
       const [x, y] = pt(e);
       if (penTool === 'eraser') ink.eraseAt(x, y);
       else ink.begin(x, y, e.pressure || 0.5);
       try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 무시 */ }
-      e.preventDefault();
     }, { passive: false });
     canvas.addEventListener('pointermove', e => {
+      e.preventDefault();
       if (!drawing) return;
       if (penTool === 'eraser') {
         const [x, y] = pt(e);
         ink.eraseAt(x, y);
       } else {
-        U.penEvents(e, penState).forEach(ev => { const [x, y] = pt(ev); ink.extend(x, y, ev.pressure || 0.5); });
+        U.penEvents(e).forEach(ev => { const [x, y] = pt(ev); ink.extend(x, y, ev.pressure || 0.5); });
       }
-      e.preventDefault();
     }, { passive: false });
     const stop = () => {
       if (!drawing) return;

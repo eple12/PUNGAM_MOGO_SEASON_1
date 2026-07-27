@@ -255,21 +255,21 @@ function buildSheet(host, mode) {
     /* 필적 확인란은 인적사항 작성 중에만 쓸 수 있다. 시험이 시작된 뒤에는
        (mode === 'exam') 실제 답안지처럼 더 이상 손댈 수 없어야 한다. */
     let drawing = false;
-    let penState = null;
     cv.addEventListener('pointerdown', e => {
+      // iOS 스크리블 등 시스템 제스처가 접촉을 가로채지 못하도록 가장 먼저 부른다
+      // (Excalidraw 가 애플펜슬 획 누락 버그를 고친 방식, PR #4705).
+      e.preventDefault();
       if (mode !== 'identity') return;
       const r = cv.getBoundingClientRect();
       drawing = true;
-      penState = { lastTs: e.timeStamp };
       verifyInk.begin(e.clientX - r.left, e.clientY - r.top, e.pressure || 0.5);
       try { cv.setPointerCapture(e.pointerId); } catch (err) { /* 캡처 실패해도 필기는 이어진다 */ }
-      e.preventDefault();
     });
     cv.addEventListener('pointermove', e => {
+      e.preventDefault();
       if (!drawing) return;
       const r = cv.getBoundingClientRect();
-      U.penEvents(e, penState).forEach(ev => verifyInk.extend(ev.clientX - r.left, ev.clientY - r.top, ev.pressure || 0.5));
-      e.preventDefault();
+      U.penEvents(e).forEach(ev => verifyInk.extend(ev.clientX - r.left, ev.clientY - r.top, ev.pressure || 0.5));
     });
     const stop = () => {
       if (!drawing) return;

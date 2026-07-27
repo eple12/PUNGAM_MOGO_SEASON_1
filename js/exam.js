@@ -137,7 +137,6 @@ const Exam = (() => {
     let drawId = null;
     let sc = null;                  // 스크롤 상태
     let flingId = 0;
-    let penState = null;            // 현재 획의 { lastTs } — coalesced 역순 필터용
 
     // 방금 끝난 획을 바로 확정하지 않고 아주 짧게 들고 있다가, 그 사이 새 펜 입력이
     // 들어오면 방금 끝난 획은 중복 아티팩트로 보고 버린다(IS_IPADOS 에서만 동작).
@@ -184,6 +183,12 @@ const Exam = (() => {
     }
 
     canvas.addEventListener('pointerdown', e => {
+      // 다른 어떤 처리보다 먼저 부른다. iOS 의 "스크리블(Scribble)" 등 시스템
+      // 제스처 인식기가 이 접촉을 가로채는 걸 막으려면 로직이 끝난 뒤가 아니라
+      // 핸들러 진입 즉시 preventDefault 를 걸어야 한다 — Excalidraw 가 애플펜슬
+      // 획 누락 버그를 고친 방식과 같다(PR #4705, "fix for Apple Pencil Scribble").
+      e.preventDefault();
+
       if (reviewMode && tool === 'eraser') return;
 
       // 애플펜슬로 필기 중 손바닥이 화면에 닿아 생기는 touch 포인터를 걸러낸다.
@@ -191,7 +196,6 @@ const Exam = (() => {
       // touch 포인터로 올려보내는데, 이를 그냥 두면 아래 2포인터 판정에 걸려
       // 필기 중이던 획이 취소되고 스크롤로 전환돼 버린다("글씨가 드래그됨" 증상).
       if (e.pointerType === 'touch' && !S.fingerDraw && (drawId !== null || act === 'draw' || act === 'erase')) {
-        e.preventDefault();
         return;
       }
 
@@ -233,7 +237,6 @@ const Exam = (() => {
           }
           pendingStroke = null;
         }
-        penState = { lastTs: e.timeStamp };
         if (tool === 'eraser') { act = 'erase'; ink.eraseAt(x, y); }
         else { act = 'draw'; ink.begin(x, y, e.pressure || 0.5); }
         drawId = e.pointerId;
@@ -241,10 +244,10 @@ const Exam = (() => {
       } else {
         beginScroll();
       }
-      e.preventDefault();
     }, { passive: false });
 
     canvas.addEventListener('pointermove', e => {
+      e.preventDefault();   // 위 pointerdown 과 같은 이유로 가장 먼저 부른다
       if (!pointers.has(e.pointerId)) return;
       pointers.set(e.pointerId, { y: e.clientY, type: pointers.get(e.pointerId).type });
 
@@ -256,28 +259,19 @@ const Exam = (() => {
         const dt = Math.max(1, now - sc.t);
         sc.v = sc.v * 0.6 + (dy / dt * 16) * 0.4;
         sc.y = y; sc.t = now;
-        e.preventDefault();
         return;
       }
       if (e.pointerId !== drawId) return;
 
-      // iOS Safari 는 getCoalescedEvents() 가 간혹 시간 역순/중복된 좌표를 섞어
-      // 내려보낸다. 이를 그대로 그리면 아직 안 그려진 뒷부분으로 잠깐 직선으로
-      // 튀었다가 실제 좌표들이 뒤따라와 다시 채워지면서, 빠른 획 하나가 두 갈래로
-      // 갈라졌다 합쳐지는 것처럼 보인다. timeStamp 가 역행하는 좌표는 버린다.
-      //
       // 애플펜슬은 화면에 닿기 전 "호버" 상태에서도 pointermove 를 보낼 수 있고
-      // 이때 pressure 는 항상 정확히 0 이다. 접촉 직후 첫 pointermove 의 coalesced
-      // 배치에 이 호버 시점 잔여 좌표(압력 0)가 섞여 들어오는 경우가 있는데, 이게
-      // 획 시작점에서 엉뚱한 곳으로 튀는 직선 가지의 정체다. 실제로 펜이 눌린 채
-      // 그리는 중에는 pressure 가 정확히 0일 수 없으므로 그런 좌표는 버린다.
-      const list = U.penEvents(e, penState);
+      // 이때 pressure 는 항상 정확히 0 이다 — 실제로 펜이 눌린 채 그리는 중에는
+      // 그럴 수 없으므로 그런 좌표만 걸러낸다(U.penEvents, js/util.js 참고).
+      const list = U.penEvents(e);
       if (act === 'draw') {
         list.forEach(ev => { const [x, y] = pt(ev); ink.extend(x, y, ev.pressure || 0.5); });
       } else if (act === 'erase') {
         list.forEach(ev => { const [x, y] = pt(ev); ink.eraseAt(x, y); });
       }
-      e.preventDefault();
     }, { passive: false });
 
     function finish(e) {

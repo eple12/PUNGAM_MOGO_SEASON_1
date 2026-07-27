@@ -8,25 +8,16 @@ const U = (() => {
   const els = (sel, root) => Array.from((root || document).querySelectorAll(sel));
 
   /* 펜/터치 포인터 이벤트에서 실제로 그릴 좌표만 뽑아낸다(필기 캔버스 공용 로직).
-     - 한 프레임에 뭉쳐 들어온 coalesced 이벤트를 모두 펼치고
-     - 애플펜슬이 화면에 닿기 전 "호버" 상태에서 흘려보내는 압력 0 잔여 좌표를 버리고
-     - iOS 가 coalesced 배치 안에서 간혹 시간 역순으로 섞어 보내는 좌표를 버린다
-       (그대로 그리면 빠른 획이 두 갈래로 갈라졌다 합쳐지는 것처럼 보인다)
-     state 는 호출부가 pointerdown 시 { lastTs: -1 } 로 새로 만들어 스트로크가
-     끝날 때까지 들고 있어야 한다(획마다 독립적인 역순 판정 기준이 필요하므로). */
-  function penEvents(e, state) {
-    const list = e.getCoalescedEvents ? e.getCoalescedEvents() : null;
-    const src = list && list.length ? list : [e];
-    return src.filter(ev => {
-      if (ev.pointerType === 'pen' && ev.pressure === 0) return false;
-      // 브라우저에 따라 timeStamp 정밀도가 낮아(반올림) coalesced 배치 안의
-      // 서로 다른 실좌표가 같은 timeStamp 값을 공유하는 경우가 있다. 그런
-      // 경우까지 "이미 본 좌표"로 버리면(<=) 실제 좌표를 대량으로 잃는다.
-      // 진짜로 시간이 거꾸로 간 것(<)만 역순으로 보고 버린다.
-      if (ev.timeStamp < state.lastTs) return false;
-      state.lastTs = ev.timeStamp;
-      return true;
-    });
+     getCoalescedEvents() 로 한 프레임에 뭉친 하위 좌표를 펼쳐 쓰던 걸 걷어냈다 —
+     Safari/iPadOS 가 이 API 를 제대로 구현하지 않아(timeStamp 가 뭉개져 나오는 등)
+     오히려 실좌표를 대량으로 걸러내는 역효과가 났다. Excalidraw 도 이 API 를 쓰지
+     않고 그냥 pointermove 이벤트를 그대로 받는데, iOS 는 이것만으로도 자체적으로
+     최대 240Hz 로 이벤트를 쏴 준다(Apple 개발자 포럼에서 확인됨) — 그러니 여기서
+     더 손댈 필요가 없다. 애플펜슬이 화면에 닿기 전 "호버" 상태에서 보내는 압력
+     0 잔여 좌표만 걸러낸다. */
+  function penEvents(e) {
+    if (e.pointerType === 'pen' && e.pressure === 0) return [];
+    return [e];
   }
 
   function make(tag, cls, html) {

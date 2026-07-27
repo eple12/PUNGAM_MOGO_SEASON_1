@@ -255,10 +255,16 @@ function buildSheet(host, mode) {
     /* 필적 확인란은 인적사항 작성 중에만 쓸 수 있다. 시험이 시작된 뒤에는
        (mode === 'exam') 실제 답안지처럼 더 이상 손댈 수 없어야 한다. */
     let drawing = false;
-    cv.addEventListener('pointerdown', e => {
-      // iOS 스크리블 등 시스템 제스처가 접촉을 가로채지 못하도록 가장 먼저 부른다
-      // (Excalidraw 가 애플펜슬 획 누락 버그를 고친 방식, PR #4705).
+
+    // Excalidraw 의 실제 수정을 그대로 옮긴 것(PR #4705, onTapStart, 커밋 7049e2a).
+    // 그리기 로직이 있는 pointerdown 이 아니라, 별도로 붙인 이 touchstart 리스너
+    // 맨 첫 줄에서만 preventDefault() 를 불러야 iOS Scribble 을 실제로 이긴다.
+    cv.addEventListener('touchstart', e => {
+      // fix for Apple Pencil Scribble
       e.preventDefault();
+    }, { passive: false });
+
+    cv.addEventListener('pointerdown', e => {
       if (mode !== 'identity') return;
       const r = cv.getBoundingClientRect();
       drawing = true;

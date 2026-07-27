@@ -182,6 +182,16 @@ const Exam = (() => {
       sc = { y: avgY(), t: performance.now(), v: 0, t0: performance.now(), startTop: scroll.scrollTop };
     }
 
+    // Excalidraw 의 실제 수정을 그대로 옮긴 것(PR #4705, onTapStart, 커밋 7049e2a).
+    // 그 소스를 직접 확인해 보면 그리기 로직이 있는 pointerdown 이 아니라, 완전히
+    // 별도로 캔버스에 붙인 이 touchstart 리스너 맨 첫 줄에서만 preventDefault() 를
+    // 부른다 — iOS 의 Scribble(필기 인식) 제스처가 손을 대는 건 pointerdown 시점이
+    // 아니라 이 touchstart 시점이라, 여기서 막아야 실제로 이긴다.
+    canvas.addEventListener('touchstart', e => {
+      // fix for Apple Pencil Scribble
+      e.preventDefault();
+    }, { passive: false });
+
     canvas.addEventListener('pointerdown', e => {
       // 다른 어떤 처리보다 먼저 부른다. iOS 의 "스크리블(Scribble)" 등 시스템
       // 제스처 인식기가 이 접촉을 가로채는 걸 막으려면 로직이 끝난 뒤가 아니라

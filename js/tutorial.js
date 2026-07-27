@@ -142,10 +142,16 @@ const Tutorial = (() => {
     // 스쳐도 무시되어(스크롤 등 기본 동작만 남는다) 오작동을 막는다.
     const canDraw = e => e.pointerType === 'pen' || e.pointerType === 'mouse' || (fingerDraw && e.pointerType === 'touch');
     let drawing = false;
-    canvas.addEventListener('pointerdown', e => {
-      // iOS 스크리블 등 시스템 제스처가 접촉을 가로채지 못하도록 가장 먼저 부른다
-      // (Excalidraw 가 애플펜슬 획 누락 버그를 고친 방식, PR #4705).
+
+    // Excalidraw 의 실제 수정을 그대로 옮긴 것(PR #4705, onTapStart, 커밋 7049e2a).
+    // 그리기 로직이 있는 pointerdown 이 아니라, 별도로 붙인 이 touchstart 리스너
+    // 맨 첫 줄에서만 preventDefault() 를 불러야 iOS Scribble 을 실제로 이긴다.
+    canvas.addEventListener('touchstart', e => {
+      // fix for Apple Pencil Scribble
       e.preventDefault();
+    }, { passive: false });
+
+    canvas.addEventListener('pointerdown', e => {
       if (!canDraw(e)) return;
       drawing = true;
       const [x, y] = pt(e);

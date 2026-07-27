@@ -148,6 +148,7 @@ const Exam = (() => {
     const DUP_MS = 45;
     const DUP_R = 10;                // 이 거리보다 가까울 때만 "같은 접촉점" 중복으로 본다
     const DUP_SPAN = 20;             // 이 범위보다 넓게 그려진 획은 진짜 필기로 본다
+    const PALM_GRACE_MS = 250;       // 이 시간 안에 펜이 뒤이어 닿으면 먼저 닿은 touch 를 손바닥으로 의심한다
 
     function looksLikeArtifact(s, x, y) {
       const p0 = s.p[0];
@@ -179,7 +180,7 @@ const Exam = (() => {
 
     function beginScroll() {
       act = 'scroll';
-      sc = { y: avgY(), t: performance.now(), v: 0 };
+      sc = { y: avgY(), t: performance.now(), v: 0, t0: performance.now(), startTop: scroll.scrollTop };
     }
 
     canvas.addEventListener('pointerdown', e => {
@@ -199,9 +200,23 @@ const Exam = (() => {
 
       const drawnByTouch = drawId !== null && pointers.get(drawId) && pointers.get(drawId).type === 'touch';
       if (pointers.size >= 2 && (drawnByTouch || act !== 'draw')) {
-        if (act === 'draw') { ink.cancel(); drawId = null; }
-        beginScroll();
-        return;
+        // 펜을 내려찍기 직전, 손바닥이 아주 살짝 먼저 닿아 "touch 로 스크롤 시작"으로
+        // 잘못 분류돼 있던 상태를 되돌린다. 실제로 손가락으로 화면을 끌어 스크롤하려던
+        // 것이었다면 이 시점에 이미 화면이 조금이라도 움직여 있어야 정상이므로, 아직
+        // 전혀 움직이지 않았고 아주 최근(PALM_GRACE_MS 이내)에 시작된 단일 touch 뒤로
+        // 펜이 바로 뒤이어 닿은 경우에만 그 touch 를 손바닥으로 보고 걷어낸다.
+        const others = Array.from(pointers.entries()).filter(([id]) => id !== e.pointerId);
+        const onlyStillTouch = others.length === 1 && others[0][1].type === 'touch';
+        if (canDraw(e) && act === 'scroll' && !S.fingerDraw && !reviewMode && onlyStillTouch && sc &&
+            scroll.scrollTop === sc.startTop && performance.now() - sc.t0 < PALM_GRACE_MS) {
+          pointers.delete(others[0][0]);
+          act = null; sc = null;
+          // 아래로 흘러가 정상적인 필기 시작 로직을 그대로 탄다.
+        } else {
+          if (act === 'draw') { ink.cancel(); drawId = null; }
+          beginScroll();
+          return;
+        }
       }
       if (pointers.size >= 2) return; // pen/mouse 필기 중 들어온 여분 포인터는 무시
 

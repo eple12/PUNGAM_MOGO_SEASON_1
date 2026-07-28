@@ -20,6 +20,8 @@ const Store = (() => {
       phase: 'intro',                 // intro | identity | exam | done
       student: { id: '', name: '', noId: false },   // noId: 풍암고 재학생이 아니라 학번이 없는 경우
       idMarks: new Array(CONFIG.idDigits).fill(null),
+      // 성명 자모 마킹: 칸마다 {cho,jung,jong}(자음·모음·받침 인덱스, 미표기는 null)
+      nameMarks: Array.from({ length: CONFIG.nameCols }, () => ({ cho: null, jung: null, jong: null })),
       answers: blankAnswers(),
       current: 1,
       startedAt: null,
@@ -56,6 +58,9 @@ const Store = (() => {
       s.strokes = s.strokes || {};
       s.strokeSize = s.strokeSize || {};
       s.warned = s.warned || [];
+      if (!Array.isArray(s.nameMarks) || s.nameMarks.length !== CONFIG.nameCols) {
+        s.nameMarks = Array.from({ length: CONFIG.nameCols }, () => ({ cho: null, jung: null, jong: null }));
+      }
       replace(s);
       return true;
     } catch (e) { return false; }

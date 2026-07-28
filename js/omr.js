@@ -4,42 +4,76 @@
  *  - mode : 'identity' (인적사항만) | 'exam' (답란 마킹) | 'locked' (열람 전용)
  * ===================================================================== */
 
-/* 스캐너 맞춤선(타이밍 마크). 실제 인쇄된 답안지처럼 막대 폭·간격이 저마다
-   다르게 보이도록, 고정 시드 의사난수로 한 번만 계산해 모든 답안지가
-   똑같은 배치를 쓰게 한다(새로고침마다 바뀌면 오히려 인쇄물답지 않다).
-   좌표를 정수 px로 반올림해 경계가 흐려 보이지 않게 하고, 한 주기(PERIOD)가
-   끝나는 지점과 시작 지점이 맞물리는 repeating-linear-gradient로 만들어
-   화면 폭이 얼마든(세로로 세운 좁은 화면 포함) 오른쪽 끝이 중간에 잘리지
-   않고 항상 막대 하나가 딱 맞게 끝나도록 한다. */
-const OMR_PUNCH_BG = (function () {
-  let seed = 20260726;
-  const rand = () => {
-    seed = (seed * 1664525 + 1013904223) >>> 0;
-    return seed / 4294967296;
-  };
-  const stops = [];
+/* 스캐너 맞춤선(타이밍 마크). 실제 답안지처럼 몇 개의 막대 뭉치가 넓은
+   간격을 사이에 두고 이어지는 리듬으로 배치하되, 막대 하나하나의 굵기·
+   길이는 전부 똑같게 고정한다(두께·길이가 들쭉날쭉하면 오히려 스캐너
+   맞춤선처럼 보이지 않는다). CSS linear-gradient 는 하드 스톱을 줘도
+   경계에서 미묘하게 안티에일리어싱이 섞여 굵기가 흐릿·불균일해 보이는
+   경우가 있어, 대신 SVG(<rect shape-rendering="crispEdges">)를 데이터
+   URI 로 구워 배경 이미지로 쓴다 — 래스터 사각형이라 확대·축소해도 경계가
+   항상 칼같이 떨어진다. 한 주기(PERIOD)의 폭에 맞춰 background-size 를
+   정확히 지정하고 repeat-x 로 이어 붙이므로, 화면 폭이 얼마든 오른쪽
+   끝이 중간에 잘리지 않고 항상 막대 하나가 딱 맞게 끝난다. */
+const OMR_PUNCH = (function () {
+  const BAR_W = 11;        // 모든 막대 공통 폭(px) — 더 두툼하게
+  const GAP_IN = 13;        // 한 뭉치 안, 막대 사이 간격(px) — 더 넉넉하게
+  const GAP_OUT = 74;        // 뭉치와 뭉치 사이 간격(px)
+  const GROUPS = [5, 13, 2, 9, 2, 2];   // 왼쪽부터 뭉치별 막대 개수
+  const H = 100;             // SVG 좌표계 높이(문서에서는 background-size 로 실제 높이에 맞춰 늘린다)
+
+  const rects = [];
   let x = 0;
-  const PERIOD = 600;
-  let sinceBreak = 0;
-  let nextBreakAt = 4 + Math.floor(rand() * 5);   // 실제 답안지처럼 4~8개씩 뭉쳐 보이도록
-  while (true) {
-    const barW = Math.round(5 + rand() * 4);      // 5~9px — 굵고 긴 막대
-    // 뭉치(cluster) 안에서는 촘촘하게, 뭉치 사이에는 크게 띄운다
-    const isBreak = sinceBreak >= nextBreakAt;
-    const gap = isBreak ? Math.round(46 + rand() * 60) : Math.round(9 + rand() * 12);
-    if (isBreak) { sinceBreak = 0; nextBreakAt = 4 + Math.floor(rand() * 5); } else { sinceBreak++; }
-    const x2 = x + barW;
-    if (x2 + gap >= PERIOD) {
-      stops.push('#1B1B1B ' + x + 'px', '#1B1B1B ' + Math.min(x2, PERIOD) + 'px',
-        'transparent ' + Math.min(x2, PERIOD) + 'px', 'transparent ' + PERIOD + 'px');
-      break;
+  GROUPS.forEach((count, gi) => {
+    for (let i = 0; i < count; i++) {
+      rects.push("<rect x='" + x + "' width='" + BAR_W + "' height='" + H + "' fill='#1B1B1B'/>");
+      x += BAR_W;
+      x += (i < count - 1) ? GAP_IN : GAP_OUT;
     }
-    stops.push('#1B1B1B ' + x + 'px', '#1B1B1B ' + x2 + 'px',
-      'transparent ' + x2 + 'px', 'transparent ' + (x2 + gap) + 'px');
-    x = x2 + gap;
-  }
-  return 'repeating-linear-gradient(90deg,' + stops.join(',') + ')';
+  });
+  const period = x;
+  const svg = "<svg xmlns='http://www.w3.org/2000/svg' width='" + period + "' height='" + H +
+    "' shape-rendering='crispEdges'>" + rects.join('') + '</svg>';
+  // encodeURIComponent 로 통째로 인코딩하면 따옴표·# 등이 모두 안전하게
+  // 이스케이프되어, 이 URL 이 CSS url("...") 안에 겹따옴표로 다시
+  // 감싸여 들어가도 그 자리에서 잘리는 문제가 없다.
+  return { url: 'data:image/svg+xml,' + encodeURIComponent(svg), period };
 })();
+
+/* ---------------- 성명 표기란(한글 자모 마킹) ----------------
+   실제 답안지의 "성명(빈칸없이 왼쪽부터 기재)" 표기란과 같은 방식 —
+   음절마다 초성·중성·종성을 따로 마킹한다. 유니코드 한글 완성형 코드는
+   0xAC00 + (초성*21 + 중성)*28 + 종성 으로 정해지므로, 이 공식을 그대로
+   써서 키보드 입력 ↔ 마킹을 서로 변환한다(자모가 겹받침을 뺀 표준
+   표기란 구성과 정확히 일치하도록, UI에는 겹받침을 뺀 홑받침만 싣는다 —
+   ㄳㄵㄶㄺㄻㄼㄽㄾㄿㅀㅄ 은 인명에 쓰이지 않는다). */
+const HANGUL_CHO = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
+const HANGUL_JUNG = ['ㅏ', 'ㅐ', 'ㅑ', 'ㅒ', 'ㅓ', 'ㅔ', 'ㅕ', 'ㅖ', 'ㅗ', 'ㅘ', 'ㅙ', 'ㅚ', 'ㅛ', 'ㅜ', 'ㅝ', 'ㅞ', 'ㅟ', 'ㅠ', 'ㅡ', 'ㅢ', 'ㅣ'];
+const HANGUL_JONG = [
+  { ch: '', idx: 0 },
+  { ch: 'ㄱ', idx: 1 }, { ch: 'ㄲ', idx: 2 }, { ch: 'ㄴ', idx: 4 }, { ch: 'ㄷ', idx: 7 },
+  { ch: 'ㄹ', idx: 8 }, { ch: 'ㅁ', idx: 16 }, { ch: 'ㅂ', idx: 17 }, { ch: 'ㅅ', idx: 19 },
+  { ch: 'ㅆ', idx: 20 }, { ch: 'ㅇ', idx: 21 }, { ch: 'ㅈ', idx: 22 }, { ch: 'ㅊ', idx: 23 },
+  { ch: 'ㅋ', idx: 24 }, { ch: 'ㅌ', idx: 25 }, { ch: 'ㅍ', idx: 26 }, { ch: 'ㅎ', idx: 27 }
+];
+
+function decomposeHangul(ch) {
+  const code = ch.charCodeAt(0);
+  if (code < 0xAC00 || code > 0xD7A3) return null;
+  const off = code - 0xAC00;
+  return { cho: Math.floor(off / (21 * 28)), jung: Math.floor(off / 28) % 21, jong: off % 28 };
+}
+function composeHangul(cho, jung, jong) {
+  if (cho == null || jung == null) return '';
+  return String.fromCharCode(0xAC00 + (cho * 21 + jung) * 28 + (jong || 0));
+}
+/* 마킹이 아직 자음만(또는 모음만) 있어 완성된 음절이 안 될 때는 낱자만 보여준다 */
+function nameCharDisplay(mark) {
+  if (!mark) return '';
+  if (mark.cho != null && mark.jung != null) return composeHangul(mark.cho, mark.jung, mark.jong);
+  if (mark.cho != null) return HANGUL_CHO[mark.cho];
+  if (mark.jung != null) return HANGUL_JUNG[mark.jung];
+  return '';
+}
 
 function buildSheet(host, mode) {
 
@@ -77,6 +111,38 @@ function buildSheet(host, mode) {
     return '<div class="idcols">' + groups + '</div>';
   }
 
+  /* 성명 자모 표기란: 글자 5개를 가로로 나란히 두고, 글자 하나 안에서는
+     초성·중성·종성 세 묶음을 세로 목록으로 세워 나란히 붙인다. 자모 후보
+     개수가 묶음마다 다르므로(19/21/17) 세 묶음을 위쪽 기준으로 맞춰
+     붙인다(align-items:flex-start) — 가운데/늘림 정렬을 쓰면 후보 수가
+     다른 묶음끼리 시작 위치가 어긋나 보인다. */
+  function nameJamoGroup(col, group, list, tag) {
+    let rows = '';
+    list.forEach((item, i) => {
+      const label = typeof item === 'string' ? item : item.ch;
+      const val = typeof item === 'string' ? i : item.idx;
+      rows += '<div class="namegrp__row">' + bubble(label || '&middot;', 'NAME', col + ':' + group, val) + '</div>';
+    });
+    return '<div class="namegrp namegrp--' + group + '"><span class="namegrp__lbl">' + tag + '</span>' + rows + '</div>';
+  }
+
+  function nameCharBlock(col) {
+    return '<div class="namecolblock" data-namecol="' + col + '">' +
+      '<div class="namecolblock__char" data-namechar="' + col + '"></div>' +
+      '<div class="namecolblock__grps">' +
+        nameJamoGroup(col, 'cho', HANGUL_CHO, '초') +
+        nameJamoGroup(col, 'jung', HANGUL_JUNG, '중') +
+        nameJamoGroup(col, 'jong', HANGUL_JONG, '종') +
+      '</div>' +
+    '</div>';
+  }
+
+  function nameBlock() {
+    let blocks = '';
+    for (let i = 0; i < CONFIG.nameCols; i++) blocks += nameCharBlock(i);
+    return '<div class="namewrap">' + blocks + '</div>';
+  }
+
   function ansColumn(q) {
     const head = '<div class="qcol__hd">' + q.no + '번</div>';
 
@@ -108,7 +174,7 @@ function buildSheet(host, mode) {
 
     return '' +
     '<div class="omr">' +
-      '<div class="omr__punch" style="background-image:' + OMR_PUNCH_BG + '"></div>' +
+      '<div class="omr__punch" style="background-image:url(&quot;' + OMR_PUNCH.url + '&quot;);background-size:' + OMR_PUNCH.period + 'px 100%"></div>' +
 
       '<div class="omr__head">' +
         '<div class="omr__headL">' +
@@ -144,13 +210,8 @@ function buildSheet(host, mode) {
             '<div class="obox__foot">위 문구를 아래 칸에 정자로 직접 쓰십시오.</div>' +
           '</div>' +
 
-          '<div class="obox obox--name">' +
-            '<div class="obox__hd">성 명</div>' +
-            '<div class="obox__bd">' +
-              '<input class="wfield" id="nameField" type="text" maxlength="12" placeholder="실명을 입력하십시오" autocomplete="off" spellcheck="false">' +
-              '<div class="wfield__note">본인확인을 위해 반드시 <b>실명</b>으로 작성하십시오.</div>' +
-            '</div>' +
-            '<div class="obox__hd obox__hd--rule">학 번</div>' +
+          '<div class="obox obox--id">' +
+            '<div class="obox__hd">학 번</div>' +
             '<div class="obox__bd">' +
               '<div class="idhead">' +
                 '<input class="wfield wfield--num" id="idField" type="text" inputmode="numeric" maxlength="' + CONFIG.idDigits + '" placeholder="' + '0'.repeat(CONFIG.idDigits) + '" autocomplete="off">' +
@@ -189,6 +250,14 @@ function buildSheet(host, mode) {
         '</div>' +
 
         '<div class="omr__guide">' +
+          '<div class="obox obox--name">' +
+            '<div class="obox__hd">성 명 <span class="obox__note">(빈칸없이 왼쪽부터 기재)</span></div>' +
+            '<div class="obox__bd">' +
+              '<input class="wfield" id="nameField" type="text" maxlength="12" placeholder="실명을 입력하십시오" autocomplete="off" spellcheck="false">' +
+              '<div class="wfield__note">본인확인을 위해 반드시 <b>실명</b>으로 작성하고, 아래 칸에도 자모를 마킹하십시오.</div>' +
+              nameBlock() +
+            '</div>' +
+          '</div>' +
           '<div class="obox obox--guide">' +
             '<div class="obox__hd">※ 단답형 답란 표기방법</div>' +
             '<div class="obox__bd guide">' +
@@ -296,6 +365,30 @@ function buildSheet(host, mode) {
     });
   })();
 
+  /* ---------------- 성명: 타이핑 ↔ 마킹 동기화 ----------------
+     학번처럼 두 입력 방식을 자유롭게 섞어 쓸 수 있다 — 입력칸에 타이핑하면
+     자동으로 자모가 마킹되고, 반대로 버블을 눌러 마킹해도 위쪽 빈칸에
+     완성된 글자와 입력칸 텍스트가 그대로 반영된다. */
+  function syncNameMarksFromText(text) {
+    const chars = Array.from(text).slice(0, CONFIG.nameCols);
+    for (let i = 0; i < CONFIG.nameCols; i++) {
+      const ch = chars[i];
+      if (!ch || ch === ' ') { S.nameMarks[i] = { cho: null, jung: null, jong: null }; continue; }
+      const d = decomposeHangul(ch);
+      if (d) { S.nameMarks[i] = d; continue; }
+      const choIdx = HANGUL_CHO.indexOf(ch);
+      if (choIdx >= 0) { S.nameMarks[i] = { cho: choIdx, jung: null, jong: null }; continue; }
+      const jungIdx = HANGUL_JUNG.indexOf(ch);
+      if (jungIdx >= 0) { S.nameMarks[i] = { cho: null, jung: jungIdx, jong: null }; continue; }
+      // 한글 자모가 아닌 글자(영문 등)는 마킹으로 표현할 수 없어 그대로 비워 둔다
+      S.nameMarks[i] = { cho: null, jung: null, jong: null };
+    }
+  }
+
+  function syncNameTextFromMarks() {
+    S.student.name = S.nameMarks.map(nameCharDisplay).join('').replace(/\s+$/, '');
+  }
+
   /* ---------------- 상태 반영 ---------------- */
 
   /* 답안지(root)는 인적사항 화면 → 시험 화면으로 옮겨 다니므로,
@@ -321,6 +414,17 @@ function buildSheet(host, mode) {
     });
     if (nameField) nameField.value = S.student.name || '';
     if (idField) idField.value = S.idMarks.map(d => (d == null ? '' : d)).join('');
+    // 성명 자모 마킹 + 빈칸 글자
+    root.querySelectorAll('.bub[data-q="NAME"]').forEach(b => {
+      const [col, group] = b.dataset.slot.split(':');
+      const v = +b.dataset.v;
+      const mark = S.nameMarks[+col];
+      b.classList.toggle('is-on', !!mark && mark[group] === v);
+    });
+    root.querySelectorAll('[data-namechar]').forEach(el => {
+      const i = +el.dataset.namechar;
+      el.textContent = nameCharDisplay(S.nameMarks[i]);
+    });
     paintSeal();
     paintNoId();
   }
@@ -361,6 +465,12 @@ function buildSheet(host, mode) {
       const i = +slot;
       S.idMarks[i] = (tool === 'white') ? (S.idMarks[i] === v ? null : S.idMarks[i]) : v;
       S.student.id = S.idMarks.every(d => d != null) ? S.idMarks.join('') : '';
+    } else if (qs === 'NAME') {
+      if (mode !== 'identity') { U.toast('성명은 시험 시작 전에만 표기할 수 있습니다.'); return; }
+      const [colStr, group] = slot.split(':');
+      const mark = S.nameMarks[+colStr];
+      mark[group] = (tool === 'white') ? (mark[group] === v ? null : mark[group]) : v;
+      syncNameTextFromMarks();
     } else {
       if (mode !== 'exam') { U.toast('답란은 시험 중에만 표기할 수 있습니다.'); return; }
       const no = +qs;
@@ -387,6 +497,8 @@ function buildSheet(host, mode) {
     nameField.readOnly = (mode !== 'identity');
     nameField.addEventListener('input', () => {
       S.student.name = nameField.value.replace(/\s+/g, ' ').trimStart();
+      syncNameMarksFromText(S.student.name);
+      paint();
       Store.save();
     });
   }

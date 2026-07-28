@@ -36,12 +36,14 @@
 .omr.is-exam .omr__ans,.omr.is-locked .omr__ans{order:1}
 .omr.is-exam .omr__top,.omr.is-locked .omr__top{order:2;margin-top:16px;padding-top:14px;border-top:1px dashed var(--omr-ink-2)}
 
-/* 스캐너 맞춤선(타이밍 마크). 위아래로 긴 막대를 불규칙한 간격 · 뭉치로 두고
-   (배치는 omr.js 의 OMR_PUNCH_BG), 종이 가장자리에서 살짝 띄운다. */
+/* 스캐너 맞춤선(타이밍 마크). 두툼한 막대를 몇 개씩 뭉쳐 두고 뭉치 사이는
+   넓게 띄운다(뭉치 배치는 omr.js 의 OMR_PUNCH), 종이 가장자리에서 살짝
+   띄운다. 배경은 SVG 래스터 사각형이라 image-rendering:pixelated 를 줘도
+   확대·축소 시 경계가 흐려지지 않는다. */
 .omr__punch{
-  flex:none;height:26px;margin:10px 18px 4px;
+  flex:none;height:30px;margin:10px 18px 4px;
   background-repeat:repeat-x;background-position:left top;
-  image-rendering:crisp-edges;
+  image-rendering:pixelated;
 }
 
 
@@ -125,9 +127,6 @@
 .wfield:read-only{background:#F7F4E4;border-style:dashed;color:#3A3A40}
 .wfield--num{letter-spacing:.5em;font-variant-numeric:tabular-nums;font-weight:600}
 .wfield__note{margin-top:5px;font-size:10.5px}
-
-/* 학번 칸이름 위쪽에 붉은 구분선을 둬서 성명 항목과 시각적으로 분리한다 */
-.obox__hd--rule{border-top:2px solid var(--omr-ink);margin-top:9px}
 
 /* 학번 입력칸 옆 비재학생 버튼 */
 .idhead{display:flex;gap:8px;align-items:stretch}
@@ -232,6 +231,25 @@
   border-top:1px dashed var(--omr-ink-2);font-weight:600;
 }
 .guide__note + .guide__note{border-top:none;margin-top:2px;padding-top:0;font-weight:500}
+
+/* ---------------- 성명 표기란(자모 마킹) ----------------
+   글자 5개를 가로로 나란히 두고, 글자 하나 안에서는 초성·중성·종성 세
+   묶음을 세로 목록으로 세워 나란히 붙인다. 묶음마다 후보 개수가 달라도
+   (19/21/17) align-items:flex-start 로 전부 위쪽 기준선에 맞춘다. */
+.namewrap{--bub:18px;display:flex;gap:8px;justify-content:center;margin-top:9px}
+.namecolblock{
+  flex:none;border:1.6px solid var(--omr-ink);border-radius:5px;overflow:hidden;background:rgba(255,255,255,.4);
+}
+.namecolblock__char{
+  height:30px;display:flex;align-items:center;justify-content:center;
+  font-size:15px;font-weight:700;background:var(--omr-soft);border-bottom:1.4px solid var(--omr-ink);
+}
+.namecolblock__grps{display:flex;align-items:flex-start}
+.namegrp{display:flex;flex-direction:column;align-items:center;padding:3px 3px 4px}
+.namegrp + .namegrp{border-left:1px dashed var(--omr-ink-2)}
+.namegrp__lbl{font-size:9px;font-weight:800;color:var(--omr-ink-2);margin-bottom:2px}
+.namegrp__row{padding:1px 0}
+.namegrp .bub{font-size:9px}
 
 /* ---------------- 답란 ---------------- */
 .omr__ans{position:relative;padding:4px 20px 0}

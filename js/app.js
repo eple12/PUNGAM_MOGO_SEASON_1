@@ -165,17 +165,17 @@ const App = (() => {
       '<div class="consent">' +
         '<h3 class="consent__title">개인정보 수집 및 이용 동의</h3>' +
         '<ul class="consent__list">' +
-          '<li><b>이름·학번</b> — 상품 제공 및 본인 확인 목적으로 수집합니다.</li>' +
-          '<li><b>필기(펜) 데이터</b> — 답안 확인 및 이의 제기 대응 목적으로 수집합니다.</li>' +
-          '<li><b>최종 점수</b> — 다른 응시자에게는 공개되지 않으며, 전체 응시자 점수 분포(그래프)에만 반영됩니다.</li>' +
+          '<li><b>이름·학번</b><br> 상품 제공 및 본인 확인 목적으로 수집합니다.</li>' +
+          '<li><b>필기 데이터</b><br> 답안 확인 및 이의 제기 대응 목적으로 수집합니다.</li>' +
+          '<li><b>최종 점수</b><br> 다른 응시자에게는 공개되지 않으며, 전체 응시자 점수 분포에만 반영됩니다.</li>' +
         '</ul>' +
-        '<p class="consent__note">수집한 정보는 채점·상품 지급 목적으로만 쓰며, 동의하지 않으면 응시할 수 없습니다.</p>' +
+        '<p class="consent__note">수집한 정보는 채점·상품 지급 목적으로만 사용되며, 동의하지 않으면 응시할 수 없습니다.</p>' +
         '<label class="consent__check"><input type="checkbox" id="agreePrivacy"><span>위 개인정보 수집·이용에 동의합니다.</span></label>' +
         '<label class="consent__check"><input type="checkbox" id="agreeNoAI"><span>시험 중 생성형 AI를 일체 사용하지 않을 것을 서약합니다.</span></label>' +
         '<label class="consent__check"><input type="checkbox" id="agreeNoLeak"><span>문항 및 정답을 다른 사람에게 유포하지 않을 것을 서약합니다.</span></label>' +
       '</div>' +
       '<p class="mline"><b>' + name + '</b> · 학번 <b>' + (noId ? '해당 없음(비재학생)' : id) + '</b></p>' +
-      '<p>모두 동의하고 확인을 누르면 감독관 날인과 답안지 이용 안내(체험)를 거쳐 <b>' + CONFIG.durationMinutes + '분</b>의 시험이 시작됩니다. ' +
+      '<p>모두 동의하고 확인을 누르면 감독관 날인과 <b>답안지 이용 안내</b>를 거쳐 <b>' + CONFIG.durationMinutes + '분</b>의 시험이 시작됩니다. ' +
       '이후에는 인적사항을 수정할 수 없습니다.</p>';
 
     const p = U.modal({

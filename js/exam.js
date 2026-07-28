@@ -127,20 +127,16 @@ const Exam = (() => {
     // 글자를 바꾸면(예: "손가락 필기 켬") 버튼 폭이 달라져 옆 버튼들이 밀리므로
     // 라벨은 그대로 두고 켜짐 여부는 채움(is-on) 색으로만 표시한다.
     U.el('#toolFinger').classList.toggle('is-on', on);
-    // 손가락 필기가 켜지면 손가락도 필기용이 되므로, 캔버스의 네이티브 스크롤을
-    // 막아야 한다(꺼져 있을 때는 손가락 터치가 그대로 페이지를 스크롤한다).
-    canvas.classList.toggle('is-fingerdraw', on);
     Store.save();
   }
 
-  /* ---------- 포인터 처리 ----------
-     스크롤은 브라우저 기본 동작(#paperScroll 의 overflow-y:auto + 캔버스
-     touch-action:pan-y, css/exam.css 참고)에 그대로 맡긴다. 손가락 필기가
-     꺼져 있으면 이 캔버스는 touch 포인터를 아예 붙잡지 않으므로(canDraw()
-     가 false 를 돌려주는 즉시 return), 터치는 필기 로직을 거치지 않고
-     자연스럽게 페이지를 스크롤한다. */
+  /* ---------- 포인터 처리 ---------- */
   function bindPointer() {
+    const pointers = new Map();
+    let act = null;                 // 'draw' | 'erase' | 'scroll'
     let drawId = null;
+    let sc = null;                  // 스크롤 상태
+    let flingId = 0;
 
     // 방금 끝난 획을 바로 확정하지 않고 아주 짧게 들고 있다가, 그 사이 새 펜 입력이
     // 들어오면 방금 끝난 획은 중복 아티팩트로 보고 버린다(IS_IPADOS 에서만 동작).
@@ -151,6 +147,7 @@ const Exam = (() => {
     const DUP_MS = 45;
     const DUP_R = 10;                // 이 거리보다 가까울 때만 "같은 접촉점" 중복으로 본다
     const DUP_SPAN = 20;             // 이 범위보다 넓게 그려진 획은 진짜 필기로 본다
+    const PALM_GRACE_MS = 250;       // 이 시간 안에 펜이 뒤이어 닿으면 먼저 닿은 touch 를 손바닥으로 의심한다
 
     function looksLikeArtifact(s, x, y) {
       const p0 = s.p[0];
@@ -160,73 +157,155 @@ const Exam = (() => {
     }
 
     const canDraw = e => e.pointerType === 'pen' || e.pointerType === 'mouse' || (S.fingerDraw && e.pointerType === 'touch');
+    const avgY = () => {
+      let s = 0; pointers.forEach(p => s += p.y); return s / pointers.size;
+    };
+
+    function stopFling() { cancelAnimationFrame(flingId); flingId = 0; }
+
+    function fling(v) {
+      stopFling();
+      if (Math.abs(v) < 1.2) return;
+      const step = () => {
+        v *= 0.945;
+        if (Math.abs(v) < 0.2) return;
+        const before = scroll.scrollTop;
+        scroll.scrollTop -= v;
+        if (scroll.scrollTop === before) return;
+        flingId = requestAnimationFrame(step);
+      };
+      flingId = requestAnimationFrame(step);
+    }
+
+    function beginScroll() {
+      act = 'scroll';
+      sc = { y: avgY(), t: performance.now(), v: 0, t0: performance.now(), startTop: scroll.scrollTop };
+    }
 
     // Excalidraw 의 실제 수정을 그대로 옮긴 것(PR #4705, onTapStart, 커밋 7049e2a).
     // 그 소스를 직접 확인해 보면 그리기 로직이 있는 pointerdown 이 아니라, 완전히
     // 별도로 캔버스에 붙인 이 touchstart 리스너 맨 첫 줄에서만 preventDefault() 를
     // 부른다 — iOS 의 Scribble(필기 인식) 제스처가 손을 대는 건 pointerdown 시점이
-    // 아니라 이 touchstart 시점이라, 여기서 막아야 실제로 이긴다. 애플펜슬(스타일러스)
-    // 접촉만 막고, 손가락 터치는 그대로 둬서 네이티브 스크롤이 시작되게 한다
-    // (손가락 필기가 켜져 있을 때는 손가락도 필기용이므로 스크롤을 막는다).
+    // 아니라 이 touchstart 시점이라, 여기서 막아야 실제로 이긴다.
     canvas.addEventListener('touchstart', e => {
-      const t = e.touches && e.touches[0];
-      if ((t && t.touchType === 'stylus') || S.fingerDraw) e.preventDefault();
+      // fix for Apple Pencil Scribble
+      e.preventDefault();
     }, { passive: false });
 
     canvas.addEventListener('pointerdown', e => {
-      if (!canDraw(e)) return;   // 손가락 필기가 꺼져 있으면 터치는 스크롤에 맡긴다
+      // 다른 어떤 처리보다 먼저 부른다. iOS 의 "스크리블(Scribble)" 등 시스템
+      // 제스처 인식기가 이 접촉을 가로채는 걸 막으려면 로직이 끝난 뒤가 아니라
+      // 핸들러 진입 즉시 preventDefault 를 걸어야 한다 — Excalidraw 가 애플펜슬
+      // 획 누락 버그를 고친 방식과 같다(PR #4705, "fix for Apple Pencil Scribble").
       e.preventDefault();
-      if (reviewMode) return;    // 복습 모드에서는 그리지 않는다(스크롤만 가능)
 
-      const [x, y] = pt(e);
-      if (pendingStroke) {
-        // 진짜 중복 아티팩트는 방금 그 자리(같은 접촉점)에서, 아주 작은 범위로만
-        // 잡히므로 그 모양일 때만 버린다. 점선처럼 일부러 조금 떨어진 곳을 빠르게
-        // 연속으로 찍는 정상 필기까지 지워버리지 않기 위한 구분이다.
-        if (looksLikeArtifact(pendingStroke, x, y)) {
-          clearTimeout(pendingTimer);
-          ink.undoIfLast(pendingStroke);
-        }
-        pendingStroke = null;
+      if (reviewMode && tool === 'eraser') return;
+
+      // 애플펜슬로 필기 중 손바닥이 화면에 닿아 생기는 touch 포인터를 걸러낸다.
+      // iPadOS Safari 는 안드로이드 S펜과 달리 펜 입력 중에도 손바닥 접촉을 그대로
+      // touch 포인터로 올려보내는데, 이를 그냥 두면 아래 2포인터 판정에 걸려
+      // 필기 중이던 획이 취소되고 스크롤로 전환돼 버린다("글씨가 드래그됨" 증상).
+      if (e.pointerType === 'touch' && !S.fingerDraw && (drawId !== null || act === 'draw' || act === 'erase')) {
+        return;
       }
-      if (tool === 'eraser') ink.eraseAt(x, y);
-      else ink.begin(x, y, e.pressure || 0.5);
-      drawId = e.pointerId;
-      try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 캡처 실패해도 필기는 이어진다 */ }
+
+      stopFling();
+      pointers.set(e.pointerId, { y: e.clientY, type: e.pointerType });
+
+      const drawnByTouch = drawId !== null && pointers.get(drawId) && pointers.get(drawId).type === 'touch';
+      if (pointers.size >= 2 && (drawnByTouch || act !== 'draw')) {
+        // 펜을 내려찍기 직전, 손바닥이 아주 살짝 먼저 닿아 "touch 로 스크롤 시작"으로
+        // 잘못 분류돼 있던 상태를 되돌린다. 실제로 손가락으로 화면을 끌어 스크롤하려던
+        // 것이었다면 이 시점에 이미 화면이 조금이라도 움직여 있어야 정상이므로, 아직
+        // 전혀 움직이지 않았고 아주 최근(PALM_GRACE_MS 이내)에 시작된 단일 touch 뒤로
+        // 펜이 바로 뒤이어 닿은 경우에만 그 touch 를 손바닥으로 보고 걷어낸다.
+        const others = Array.from(pointers.entries()).filter(([id]) => id !== e.pointerId);
+        const onlyStillTouch = others.length === 1 && others[0][1].type === 'touch';
+        if (canDraw(e) && act === 'scroll' && !S.fingerDraw && !reviewMode && onlyStillTouch && sc &&
+            scroll.scrollTop === sc.startTop && performance.now() - sc.t0 < PALM_GRACE_MS) {
+          pointers.delete(others[0][0]);
+          act = null; sc = null;
+          // 아래로 흘러가 정상적인 필기 시작 로직을 그대로 탄다.
+        } else {
+          if (act === 'draw') { ink.cancel(); drawId = null; }
+          beginScroll();
+          return;
+        }
+      }
+      if (pointers.size >= 2) return; // pen/mouse 필기 중 들어온 여분 포인터는 무시
+
+      if (canDraw(e)) {
+        if (reviewMode) { beginScroll(); return; }
+        const [x, y] = pt(e);
+        if (pendingStroke) {
+          // 진짜 중복 아티팩트는 방금 그 자리(같은 접촉점)에서, 아주 작은 범위로만
+          // 잡히므로 그 모양일 때만 버린다. 점선처럼 일부러 조금 떨어진 곳을 빠르게
+          // 연속으로 찍는 정상 필기까지 지워버리지 않기 위한 구분이다.
+          if (looksLikeArtifact(pendingStroke, x, y)) {
+            clearTimeout(pendingTimer);
+            ink.undoIfLast(pendingStroke);
+          }
+          pendingStroke = null;
+        }
+        if (tool === 'eraser') { act = 'erase'; ink.eraseAt(x, y); }
+        else { act = 'draw'; ink.begin(x, y, e.pressure || 0.5); }
+        drawId = e.pointerId;
+        try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 캡처 실패해도 필기는 이어진다 */ }
+      } else {
+        beginScroll();
+      }
     }, { passive: false });
 
     canvas.addEventListener('pointermove', e => {
+      e.preventDefault();   // 위 pointerdown 과 같은 이유로 가장 먼저 부른다
+      if (!pointers.has(e.pointerId)) return;
+      pointers.set(e.pointerId, { y: e.clientY, type: pointers.get(e.pointerId).type });
+
+      if (act === 'scroll' && sc) {
+        const y = avgY();
+        const now = performance.now();
+        const dy = y - sc.y;
+        scroll.scrollTop -= dy;
+        const dt = Math.max(1, now - sc.t);
+        sc.v = sc.v * 0.6 + (dy / dt * 16) * 0.4;
+        sc.y = y; sc.t = now;
+        return;
+      }
       if (e.pointerId !== drawId) return;
-      e.preventDefault();
 
       // 애플펜슬은 화면에 닿기 전 "호버" 상태에서도 pointermove 를 보낼 수 있고
       // 이때 pressure 는 항상 정확히 0 이다 — 실제로 펜이 눌린 채 그리는 중에는
       // 그럴 수 없으므로 그런 좌표만 걸러낸다(U.penEvents, js/util.js 참고).
       const list = U.penEvents(e);
-      if (tool === 'eraser') {
-        list.forEach(ev => { const [x, y] = pt(ev); ink.eraseAt(x, y); });
-      } else {
+      if (act === 'draw') {
         list.forEach(ev => { const [x, y] = pt(ev); ink.extend(x, y, ev.pressure || 0.5); });
+      } else if (act === 'erase') {
+        list.forEach(ev => { const [x, y] = pt(ev); ink.eraseAt(x, y); });
       }
     }, { passive: false });
 
     function finish(e) {
-      if (e.pointerId !== drawId) return;
-      drawId = null;
-      if (tool === 'eraser') { saveStrokes(); Store.save(); return; }
-      const s = ink.end();
-      if (s && IS_IPADOS) {
-        // 바로 확정하지 않고 DUP_MS 만큼 들고 있는다. 그 사이 새 펜 입력이
-        // 오면(pointerdown 핸들러) 이 획은 중복 아티팩트로 보고 버려진다.
-        clearTimeout(pendingTimer);
-        pendingStroke = s;
-        pendingTimer = setTimeout(() => {
-          pendingStroke = null;
+      pointers.delete(e.pointerId);
+      if (act === 'draw' && e.pointerId === drawId) {
+        const s = ink.end();
+        if (s && IS_IPADOS) {
+          // 바로 확정하지 않고 DUP_MS 만큼 들고 있는다. 그 사이 새 펜 입력이
+          // 오면(pointerdown 핸들러) 이 획은 중복 아티팩트로 보고 버려진다.
+          clearTimeout(pendingTimer);
+          pendingStroke = s;
+          pendingTimer = setTimeout(() => {
+            pendingStroke = null;
+            saveStrokes(); Store.save();
+          }, DUP_MS);
+        } else if (s) {
           saveStrokes(); Store.save();
-        }, DUP_MS);
-      } else if (s) {
-        saveStrokes(); Store.save();
+        }
+        drawId = null;
       }
+      if (act === 'erase' && e.pointerId === drawId) { saveStrokes(); Store.save(); drawId = null; }
+      if (act === 'scroll' && pointers.size === 0 && sc) fling(sc.v);
+      if (pointers.size === 0) { act = null; sc = null; }
+      else if (act === 'scroll') sc = { y: avgY(), t: performance.now(), v: 0 };
     }
 
     canvas.addEventListener('pointerup', finish);

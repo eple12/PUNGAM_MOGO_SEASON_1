@@ -103,13 +103,9 @@
 
 .ink{
   position:absolute;left:0;top:0;
-  /* 기본값은 세로 스크롤을 브라우저 네이티브 동작에 맡긴다(손가락 필기가 꺼져
-     있을 때). 손가락 필기를 켜면(.is-fingerdraw) 손가락도 필기용이 되므로
-     스크롤을 막는다 — js/exam.js setFingerDraw() 참고. */
-  touch-action:pan-y;-webkit-touch-callout:none;user-select:none;
+  touch-action:none;-webkit-touch-callout:none;user-select:none;
   cursor:crosshair;
 }
-.ink.is-fingerdraw{touch-action:none}
 .paper.is-erasing .ink{cursor:cell}
 
 .qmeta{

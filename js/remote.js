@@ -72,7 +72,8 @@ const Remote = (() => {
     Object.keys(strokes || {}).forEach(no => {
       out[no] = (strokes[no] || []).map(s => ({
         p: (s.p || []).map(pt => ({ x: pt[0], y: pt[1], p: pt[2] })),
-        b: s.b || null
+        b: s.b || null,
+        k: s.k === 'erase' ? 'erase' : 'ink'   // 일반 지우개(부분 지우기) 획인지 표시 — admin 필기 재생 시 필요
       }));
     });
     return out;
@@ -83,7 +84,8 @@ const Remote = (() => {
   function toFirestoreStrokeList(strokes) {
     return (strokes || []).map(s => ({
       p: (s.p || []).map(pt => ({ x: pt[0], y: pt[1], p: pt[2] })),
-      b: s.b || null
+      b: s.b || null,
+      k: s.k === 'erase' ? 'erase' : 'ink'
     }));
   }
 

@@ -20,7 +20,7 @@ const Tutorial = (() => {
   let omrTool = 'pen';               // pen | white
   let fingerDraw = false;            // 기본 꺼짐 — 켜지 않으면 손(손바닥 등)이 스쳐도 그려지지 않는다
 
-  let paperScroll, paper, inner, canvas, ink, mounted = false;
+  let paperScroll, paper, inner, canvas, ink, eraserCursor, mounted = false;
   let loadedFor = null;              // 캔버스에 현재 올라와 있는 연습 문항 번호
   let omrRoot, guideBound = false;
   let step = 0;
@@ -80,6 +80,25 @@ const Tutorial = (() => {
     strokesMap[loadedFor] = ink.dump();
   }
 
+  /* ---------- 지우개 범위 표시 ---------- */
+  function showEraserCursor(e) {
+    if (!eraserCursor || penTool !== 'erase-area') { hideEraserCursor(); return; }
+    const r = canvas.getBoundingClientRect();
+    eraserCursor.style.left = (e.clientX - r.left) + 'px';
+    eraserCursor.style.top = (e.clientY - r.top) + 'px';
+    eraserCursor.hidden = false;
+  }
+  function hideEraserCursor() {
+    if (eraserCursor) eraserCursor.hidden = true;
+  }
+
+  function updateUndoRedo() {
+    if (!ink) return;
+    const bu = U.el('#tutUndo'), br = U.el('#tutRedo');
+    if (bu) bu.disabled = !ink.canUndo();
+    if (br) br.disabled = !ink.canRedo();
+  }
+
   function updateNavUI() {
     U.el('#tutQpickNo').textContent = cur;
     U.el('#tutPrev').disabled = (cur === 1);
@@ -124,10 +143,11 @@ const Tutorial = (() => {
     relayout();
     ink.load(strokesMap[cur] || []);
     loadedFor = cur;
+    updateUndoRedo();
     requestAnimationFrame(() => {                 // 웹폰트가 늦게 붙는 경우를 대비한 재계산
       const before = paper.style.height;
       relayout();
-      if (paper.style.height !== before) ink.load(strokesMap[cur] || []);
+      if (paper.style.height !== before) { ink.load(strokesMap[cur] || []); updateUndoRedo(); }
     });
     updateNavUI();
   }
@@ -156,7 +176,7 @@ const Tutorial = (() => {
       drawing = true;
       const [x, y] = pt(e);
       if (penTool === 'eraser') ink.eraseAt(x, y);
-      else ink.begin(x, y, e.pressure || 0.5);
+      else ink.begin(x, y, e.pressure || 0.5, penTool === 'erase-area' ? 'erase' : undefined);
       try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 무시 */ }
     }, { passive: false });
     canvas.addEventListener('pointermove', e => {
@@ -174,6 +194,7 @@ const Tutorial = (() => {
       drawing = false;
       if (penTool !== 'eraser') ink.end();
       saveStrokes();
+      updateUndoRedo();
     };
     canvas.addEventListener('pointerup', stop);
     canvas.addEventListener('pointercancel', stop);
@@ -184,8 +205,10 @@ const Tutorial = (() => {
   function setPenTool(t) {
     penTool = t;
     U.el('#tutToolPen').classList.toggle('is-on', t === 'pen');
+    U.el('#tutToolEraserArea').classList.toggle('is-on', t === 'erase-area');
     U.el('#tutToolEraser').classList.toggle('is-on', t === 'eraser');
-    paper.classList.toggle('is-erasing', t === 'eraser');
+    paper.classList.toggle('is-erasing', t === 'eraser' || t === 'erase-area');
+    if (t !== 'erase-area') hideEraserCursor();
   }
 
   function setFingerDraw(on) {
@@ -203,12 +226,28 @@ const Tutorial = (() => {
     inner = U.el('#tutPaperInner');
     canvas = U.el('#tutInkCanvas');
     ink = createInk(canvas);
+    eraserCursor = U.el('#tutEraserCursor');
+    if (eraserCursor) eraserCursor.style.width = eraserCursor.style.height = ink.eraseWidth + 'px';
+    canvas.addEventListener('pointermove', showEraserCursor);
+    canvas.addEventListener('pointerdown', showEraserCursor);
+    canvas.addEventListener('pointerleave', hideEraserCursor);
+    canvas.addEventListener('pointercancel', hideEraserCursor);
     window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(relayout, 160); });
     bindPointer();
     U.el('#tutToolPen').addEventListener('click', () => setPenTool('pen'));
+    U.el('#tutToolEraserArea').addEventListener('click', () => setPenTool('erase-area'));
     U.el('#tutToolEraser').addEventListener('click', () => setPenTool('eraser'));
     U.el('#tutToolFinger').addEventListener('click', () => setFingerDraw(!fingerDraw));
     setFingerDraw(false);
+    U.el('#tutUndo').addEventListener('click', () => {
+      if (!ink.undo()) return;
+      saveStrokes(); updateUndoRedo();
+    });
+    U.el('#tutRedo').addEventListener('click', () => {
+      if (!ink.redo()) return;
+      saveStrokes(); updateUndoRedo();
+    });
+    updateUndoRedo();
     U.el('#tutPrev').addEventListener('click', () => show(cur - 1));
     U.el('#tutNext').addEventListener('click', () => show(cur + 1));
     U.el('#tutQpickBtn').addEventListener('click', () => {
@@ -222,7 +261,7 @@ const Tutorial = (() => {
         body: '<p>현재 문항(예시 ' + cur + '번)의 필기를 모두 지웁니다. 되돌릴 수 없습니다.</p>',
         buttons: [{ label: '취소', value: false }, { label: '지우기', value: true, kind: 'danger' }]
       });
-      if (ok) { ink.clear(); saveStrokes(); U.toast('필기를 지웠습니다.'); }
+      if (ok) { ink.clear(); saveStrokes(); updateUndoRedo(); U.toast('필기를 지웠습니다.'); }
     });
     setPenTool('pen');
   }

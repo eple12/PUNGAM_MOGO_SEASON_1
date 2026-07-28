@@ -26,8 +26,10 @@
 .navbtn{
   width:38px;height:36px;border:1px solid var(--line-2);background:#fff;border-radius:8px;
   font-size:13px;color:var(--ink-2);cursor:pointer;touch-action:manipulation;
+  display:flex;align-items:center;justify-content:center;
 }
 .navbtn:disabled{opacity:.3}
+.navbtn svg{display:block}
 .qpick{
   min-width:104px;height:36px;border:1px solid var(--line-2);border-radius:8px;background:#fff;
   display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;
@@ -43,6 +45,9 @@
 }
 .qpick__no.is-marked::after{background:var(--ok)}
 .qpick__of{font-size:12.5px;color:var(--ink-3)}
+
+.undoredo{display:flex;gap:6px}
+.undoredo[hidden]{display:none}
 
 .tools{display:flex;border:1px solid var(--line-2);border-radius:8px;overflow:hidden}
 .tool{
@@ -107,6 +112,16 @@
   cursor:crosshair;
 }
 .paper.is-erasing .ink{cursor:cell}
+
+/* 일반 지우개 범위 표시 — 실제 지워지는 굵기(js/ink.js 의 ERASE_BASE)를 손이나
+   펜 아래에 연하게 미리 보여준다. 지름은 JS 에서 ink.eraseWidth 로 맞춘다. */
+.eraser-cursor{
+  position:absolute;left:0;top:0;
+  border-radius:50%;pointer-events:none;
+  background:rgba(20,21,24,.08);border:1px solid rgba(20,21,24,.22);
+  transform:translate(-50%,-50%);
+  z-index:5;
+}
 
 .qmeta{
   display:flex;align-items:center;justify-content:space-between;gap:12px;

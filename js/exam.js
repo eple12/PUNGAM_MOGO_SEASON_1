@@ -6,7 +6,7 @@ const Exam = (() => {
 
   const S = Store.s;
 
-  let scroll, paper, inner, canvas, ink;
+  let scroll, paper, inner, canvas, ink, eraserCursor;
   let loadedFor = null;             // 캔버스에 현재 올라와 있는 문항 번호
   let tool = 'pen';                 // pen | eraser
   let mounted = false;
@@ -24,6 +24,18 @@ const Exam = (() => {
   function pt(e) {
     const r = canvas.getBoundingClientRect();
     return [e.clientX - r.left, e.clientY - r.top];
+  }
+
+  /* ---------- 지우개 범위 표시 ---------- */
+  function showEraserCursor(e) {
+    if (!eraserCursor || tool !== 'erase-area' || reviewMode) { hideEraserCursor(); return; }
+    const [x, y] = pt(e);
+    eraserCursor.style.left = x + 'px';
+    eraserCursor.style.top = y + 'px';
+    eraserCursor.hidden = false;
+  }
+  function hideEraserCursor() {
+    if (eraserCursor) eraserCursor.hidden = true;
   }
 
   /* ---------- 레이아웃 ---------- */
@@ -62,10 +74,11 @@ const Exam = (() => {
     relayout();                                   // KaTeX 는 동기 렌더이므로 즉시 높이가 확정된다
     ink.load(S.strokes[no] || []);
     loadedFor = no;
+    updateUndoRedo();
     requestAnimationFrame(() => {                 // 웹폰트가 늦게 붙는 경우를 대비한 재계산
       const before = paper.style.height;
       relayout();
-      if (paper.style.height !== before) ink.load(S.strokes[no] || []);
+      if (paper.style.height !== before) { ink.load(S.strokes[no] || []); updateUndoRedo(); }
     });
 
     U.el('#qpickNo').textContent = no;
@@ -114,12 +127,16 @@ const Exam = (() => {
     });
   }
 
-  /* ---------- 도구 ---------- */
+  /* ---------- 도구 ----------
+     tool: 'pen' | 'eraser'(획 지우개 — 닿은 획을 통째로 지운다) |
+     'erase-area'(일반 지우개 — 실제 지우개처럼 지나간 자리만 부분적으로 지운다) */
   function setTool(t) {
     tool = t;
     U.el('#toolPen').classList.toggle('is-on', t === 'pen');
+    U.el('#toolEraserArea').classList.toggle('is-on', t === 'erase-area');
     U.el('#toolEraser').classList.toggle('is-on', t === 'eraser');
-    paper.classList.toggle('is-erasing', t === 'eraser');
+    paper.classList.toggle('is-erasing', t === 'eraser' || t === 'erase-area');
+    if (t !== 'erase-area') hideEraserCursor();
   }
 
   function setFingerDraw(on) {
@@ -128,6 +145,14 @@ const Exam = (() => {
     // 라벨은 그대로 두고 켜짐 여부는 채움(is-on) 색으로만 표시한다.
     U.el('#toolFinger').classList.toggle('is-on', on);
     Store.save();
+  }
+
+  /* ---------- 실행취소 / 다시 실행 ---------- */
+  function updateUndoRedo() {
+    if (!ink) return;
+    const bu = U.el('#btnUndo'), br = U.el('#btnRedo');
+    if (bu) bu.disabled = reviewMode || !ink.canUndo();
+    if (br) br.disabled = reviewMode || !ink.canRedo();
   }
 
   /* ---------- 포인터 처리 ---------- */
@@ -248,6 +273,7 @@ const Exam = (() => {
           pendingStroke = null;
         }
         if (tool === 'eraser') { act = 'erase'; ink.eraseAt(x, y); }
+        else if (tool === 'erase-area') { act = 'draw'; ink.begin(x, y, e.pressure || 0.5, 'erase'); }
         else { act = 'draw'; ink.begin(x, y, e.pressure || 0.5); }
         drawId = e.pointerId;
         try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 캡처 실패해도 필기는 이어진다 */ }
@@ -295,14 +321,14 @@ const Exam = (() => {
           pendingStroke = s;
           pendingTimer = setTimeout(() => {
             pendingStroke = null;
-            saveStrokes(); Store.save();
+            saveStrokes(); Store.save(); updateUndoRedo();
           }, DUP_MS);
         } else if (s) {
-          saveStrokes(); Store.save();
+          saveStrokes(); Store.save(); updateUndoRedo();
         }
         drawId = null;
       }
-      if (act === 'erase' && e.pointerId === drawId) { saveStrokes(); Store.save(); drawId = null; }
+      if (act === 'erase' && e.pointerId === drawId) { saveStrokes(); Store.save(); updateUndoRedo(); drawId = null; }
       if (act === 'scroll' && pointers.size === 0 && sc) fling(sc.v);
       if (pointers.size === 0) { act = null; sc = null; }
       else if (act === 'scroll') sc = { y: avgY(), t: performance.now(), v: 0 };
@@ -331,6 +357,12 @@ const Exam = (() => {
     inner = U.el('#paperInner');
     canvas = U.el('#inkCanvas');
     ink = createInk(canvas);
+    eraserCursor = U.el('#eraserCursor');
+    if (eraserCursor) eraserCursor.style.width = eraserCursor.style.height = ink.eraseWidth + 'px';
+    canvas.addEventListener('pointermove', showEraserCursor);
+    canvas.addEventListener('pointerdown', showEraserCursor);
+    canvas.addEventListener('pointerleave', hideEraserCursor);
+    canvas.addEventListener('pointercancel', hideEraserCursor);
 
     U.el('#btnPrev').addEventListener('click', () => show(S.current - 1));
     U.el('#btnNext').addEventListener('click', () => show(S.current + 1));
@@ -340,6 +372,7 @@ const Exam = (() => {
       if (!p.hidden) paintQList();
     });
     U.el('#toolPen').addEventListener('click', () => setTool('pen'));
+    U.el('#toolEraserArea').addEventListener('click', () => setTool('erase-area'));
     U.el('#toolEraser').addEventListener('click', () => setTool('eraser'));
     U.el('#toolFinger').addEventListener('click', () => setFingerDraw(!S.fingerDraw));
     U.el('#btnClearInk').addEventListener('click', async () => {
@@ -348,7 +381,15 @@ const Exam = (() => {
         body: '<p>현재 문항의 필기를 모두 지웁니다. 되돌릴 수 없습니다.</p>',
         buttons: [{ label: '취소', value: false }, { label: '지우기', value: true, kind: 'danger' }]
       });
-      if (ok) { ink.clear(); saveStrokes(); Store.save(); U.toast('필기를 지웠습니다.'); }
+      if (ok) { ink.clear(); saveStrokes(); Store.save(); updateUndoRedo(); U.toast('필기를 지웠습니다.'); }
+    });
+    U.el('#btnUndo').addEventListener('click', () => {
+      if (reviewMode || !ink.undo()) return;
+      saveStrokes(); Store.save(); updateUndoRedo();
+    });
+    U.el('#btnRedo').addEventListener('click', () => {
+      if (reviewMode || !ink.redo()) return;
+      saveStrokes(); Store.save(); updateUndoRedo();
     });
 
     bindPointer();
@@ -361,11 +402,14 @@ const Exam = (() => {
 
     setTool('pen');
     setFingerDraw(!!S.fingerDraw);
+    updateUndoRedo();
   }
 
   function setReview(on) {
     reviewMode = on;
     U.el('#screenExam').classList.toggle('is-review', on);
+    updateUndoRedo();
+    if (on) hideEraserCursor();
   }
 
   return {

@@ -282,6 +282,7 @@ function buildSheet(host, mode) {
       drawing = false;
       verifyInk.end();
       S.verifyStrokes = verifyInk.dump();
+      S.verifyStrokeSize = verifyInk.size();
       Store.save();
     };
     cv.addEventListener('pointerup', stop);

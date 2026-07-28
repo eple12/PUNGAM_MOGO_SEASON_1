@@ -135,7 +135,7 @@ const Result = (() => {
         '<footer class="rfoot">' +
           '<button class="btn btn--outline" id="btnReview" type="button">문제지 다시 보기</button>' +
           '<button class="btn btn--outline" id="btnSheet" type="button">내 답안지 보기</button>' +
-          '<button class="btn btn--outline" id="btnRestart" type="button">기록 지우고 처음으로</button>' +
+          '<button class="btn btn--outline" id="btnRestart" type="button">처음으로</button>' +
         '</footer>' +
       '</div>';
 
@@ -143,9 +143,9 @@ const Result = (() => {
     U.el('#btnSheet').addEventListener('click', () => App.reviewSheet());
     U.el('#btnRestart').addEventListener('click', async () => {
       const ok = await U.modal({
-        title: '기록을 지우고 처음으로',
-        body: '<p>답안과 필기 기록이 모두 삭제됩니다. 계속하시겠습니까?</p>',
-        buttons: [{ label: '취소', value: false }, { label: '삭제하고 처음으로', value: true, kind: 'danger' }]
+        title: '처음으로',
+        body: '<p>자신의 결과를 다시 확인할 수 없습니다. 계속하시겠습니까?</p>',
+        buttons: [{ label: '취소', value: false }, { label: '처음으로', value: true, kind: 'danger' }]
       });
       if (ok) { Store.reset(); location.reload(); }
     });

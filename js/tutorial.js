@@ -146,9 +146,12 @@ const Tutorial = (() => {
     // Excalidraw 의 실제 수정을 그대로 옮긴 것(PR #4705, onTapStart, 커밋 7049e2a).
     // 그리기 로직이 있는 pointerdown 이 아니라, 별도로 붙인 이 touchstart 리스너
     // 맨 첫 줄에서만 preventDefault() 를 불러야 iOS Scribble 을 실제로 이긴다.
+    // 애플펜슬(스타일러스) 접촉만 막아 Scribble 을 예방하고, 손가락 터치는 그대로
+    // 둬서 네이티브 스크롤이 시작되게 한다(js/exam.js 의 같은 처리 참고). 손가락
+    // 필기가 켜져 있을 때는 손가락도 필기용이므로 스크롤을 막는다.
     canvas.addEventListener('touchstart', e => {
-      // fix for Apple Pencil Scribble
-      e.preventDefault();
+      const t = e.touches && e.touches[0];
+      if ((t && t.touchType === 'stylus') || fingerDraw) e.preventDefault();
     }, { passive: false });
 
     canvas.addEventListener('pointerdown', e => {
@@ -193,6 +196,8 @@ const Tutorial = (() => {
     // 글자를 바꾸면 버튼 폭이 달라져 옆 버튼이 밀리므로 라벨은 그대로 두고
     // 켜짐 여부는 채움(is-on) 색으로만 표시한다.
     U.el('#tutToolFinger').classList.toggle('is-on', on);
+    // 손가락 필기가 켜지면 손가락도 필기용이 되므로 캔버스의 네이티브 스크롤을 막는다.
+    if (canvas) canvas.classList.toggle('is-fingerdraw', on);
   }
 
   function mountPaper() {

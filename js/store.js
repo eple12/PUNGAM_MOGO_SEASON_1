@@ -28,6 +28,7 @@ const Store = (() => {
       strokes: {},                    // { 문항번호: [stroke, ...] }
       strokeSize: {},                 // { 문항번호: {w,h} } — 필기 당시 캔버스 크기(제출 시 서버에 함께 보내 재생 배율을 맞춘다)
       verifyStrokes: [],
+      verifyStrokeSize: null,         // 필적 확인란 필기 당시 캔버스 크기(제출 시 서버에 함께 보내 재생 배율을 맞춘다)
       fingerDraw: false,
       warned: [],
       result: null

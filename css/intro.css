@@ -92,6 +92,27 @@
 }
 .card__lead{margin:14px 0 18px;font-size:14px;color:var(--ink-3);line-height:1.7}
 
+/* 이벤트 안내 */
+.card--event{
+  background:linear-gradient(180deg,#EEF6FD,#E4F0FB);
+  border:1px solid #AECBEA;
+}
+.event__period{
+  margin:14px 0 0;font-size:13.5px;font-weight:700;letter-spacing:-.01em;color:var(--navy-2);
+}
+.event__list{
+  margin:10px 0 0;padding-left:20px;list-style:disc;
+}
+.event__list li{
+  margin-bottom:6px;font-size:13.5px;line-height:1.7;color:#3E6690;
+}
+.event__list li b{font-weight:800;color:var(--navy-2)}
+.event__extra{
+  margin:14px 0 0;padding:12px 14px;border-radius:8px;
+  background:rgba(255,255,255,.6);border:1px solid #AECBEA;
+  font-size:13.5px;line-height:1.7;font-weight:700;color:var(--navy-2);
+}
+
 /* 출제진 */
 .authors{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 .author{

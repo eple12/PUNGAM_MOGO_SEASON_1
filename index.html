@@ -54,6 +54,13 @@
 
     <div class="intro__grid">
 
+      <article class="card card--wide card--event" id="eventCard" hidden>
+        <h2 class="card__title">이벤트 안내</h2>
+        <p class="event__period" id="eventPeriod"></p>
+        <ul class="event__list" id="eventList"></ul>
+        <p class="event__extra" id="eventExtra"></p>
+      </article>
+
       <article class="card card--wide">
         <h2 class="card__title">출제진</h2>
         <div class="authors" id="authorList"></div>
@@ -145,7 +152,7 @@
   <div class="qlist" id="tutQlist" hidden>
     <div class="qlist__head">
       <span>문항 이동 · 마킹 현황</span>
-      <button class="btn btn--text" id="tutClearInk" type="button">현재 문항 필기 지우기</button>
+      <button class="btn btn--outline btn--sm" id="tutClearInk" type="button">현재 문항 필기 지우기</button>
     </div>
     <div class="qlist__grid" id="tutQlistGrid"></div>
     <div class="qlist__legend">
@@ -232,7 +239,7 @@
   <div class="qlist" id="qlist" hidden>
     <div class="qlist__head">
       <span>문항 이동 · 마킹 현황</span>
-      <button class="btn btn--text" id="btnClearInk" type="button">현재 문항 필기 지우기</button>
+      <button class="btn btn--outline btn--sm" id="btnClearInk" type="button">현재 문항 필기 지우기</button>
     </div>
     <div class="qlist__grid" id="qlistGrid"></div>
     <div class="qlist__legend">

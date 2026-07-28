@@ -30,6 +30,14 @@ const App = (() => {
       ['유형', '단답형 ' + shortN + ' · 5지선다형 ' + choiceN]
     ].map(([k, v]) => '<li><span>' + k + '</span><b>' + v + '</b></li>').join('');
 
+    const ev = CONFIG.event;
+    if (ev && ev.enabled) {
+      U.el('#eventCard').hidden = false;
+      U.el('#eventPeriod').textContent = ev.period;
+      U.el('#eventList').innerHTML = (ev.items || []).map(i => '<li>' + i + '</li>').join('');
+      U.el('#eventExtra').innerHTML = ev.extra || '';
+    }
+
     const counts = {};
     QUESTIONS.forEach(q => { (counts[q.author] = counts[q.author] || []).push(q.no); });
 
@@ -200,7 +208,7 @@ const App = (() => {
         await U.modal({
           title: '이미 응시한 기록이 있습니다',
           body: '<p><b>' + name + '</b>' + (noId ? '' : ' · 학번 <b>' + id + '</b>') +
-                '(으)로 제출된 답안이 이미 있어 다시 응시할 수 없습니다.</p>' +
+                '으로 제출된 답안이 이미 있어 다시 응시할 수 없습니다.</p>' +
                 '<p>본인의 기록이 아니라고 생각되면 감독관에게 문의하십시오.</p>',
           buttons: [{ label: '확인', value: true, kind: 'primary' }]
         });
@@ -308,7 +316,8 @@ const App = (() => {
       Remote.saveResult({
         id: S.student.id, name: S.student.name, noId: S.student.noId,
         reason, result: S.result,
-        strokes: S.strokes, strokeSize: S.strokeSize
+        strokes: S.strokes, strokeSize: S.strokeSize,
+        verifyStrokes: S.verifyStrokes, verifyStrokeSize: S.verifyStrokeSize
       }).then(r => {
         if (!r.saved && r.code === 'permission-denied') {
           U.toast('이미 같은 이름/학번으로 제출된 기록이 있어 서버에 저장하지 못했습니다(재응시 방지).', 5000);

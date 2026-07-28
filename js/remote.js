@@ -78,6 +78,15 @@ const Remote = (() => {
     return out;
   }
 
+  /* 필적 확인란 필기는 문항별 필기와 달리 문항 번호로 묶이지 않은 단일 획
+     목록이라 toFirestoreStrokes 와 별도로 변환한다(같은 배열 중첩 제약). */
+  function toFirestoreStrokeList(strokes) {
+    return (strokes || []).map(s => ({
+      p: (s.p || []).map(pt => ({ x: pt[0], y: pt[1], p: pt[2] })),
+      b: s.b || null
+    }));
+  }
+
   /* 학번(있으면) 또는 이름으로 이미 제출된 기록이 있는지 확인한다.
      학번 문서(id_*)와 이름 문서(name_*) 두 곳을 모두 찾아보고
      둘 중 하나라도 있으면 중복으로 본다. */
@@ -102,7 +111,7 @@ const Remote = (() => {
      확인이 "그 이름/학번으로도" 걸리도록 존재만 표시하는 가벼운 문서
      (dup:true, 실제 답안·필기 없음)만 남긴다 — 예전엔 두 문서 모두에 전체
      내용을 복사해서, 필기가 있는 제출은 저장 용량이 그대로 두 배가 됐었다. */
-  async function saveResult({ id, name, noId, reason, result, strokes, strokeSize }) {
+  async function saveResult({ id, name, noId, reason, result, strokes, strokeSize, verifyStrokes, verifyStrokeSize }) {
     if (!enabled) return { saved: false };
     const hasId = !noId && !!id;
     const canonicalKey = hasId ? idDocKey(id) : nameDocKey(name);
@@ -137,7 +146,11 @@ const Remote = (() => {
     }
 
     try {
-      await commit(Object.assign({ strokes: toFirestoreStrokes(strokes), strokeSize: strokeSize || {} }, basePayload));
+      await commit(Object.assign({
+        strokes: toFirestoreStrokes(strokes), strokeSize: strokeSize || {},
+        verifyStrokes: toFirestoreStrokeList(verifyStrokes), verifyStrokeSize: verifyStrokeSize || null,
+        strokesDropped: false
+      }, basePayload));
       return { saved: true };
     } catch (e) {
       // permission-denied 는 이미 제출된 기록이 있어 보안 규칙이 덮어쓰기를
@@ -149,7 +162,12 @@ const Remote = (() => {
         return { saved: false, error: e, code: e.code };
       }
       try {
-        await commit(basePayload);
+        // admin 대시보드가 "필기가 저장되지 않았다"는 사실과 그 이유를 볼 수 있도록
+        // 남겨 둔다(예: 문서 용량 초과로 필기를 통째로 뺀 채 성적만 저장한 경우).
+        await commit(Object.assign({
+          strokesDropped: true,
+          strokesDropReason: (e && (e.code || e.message)) || 'unknown'
+        }, basePayload));
         return { saved: true, strokesDropped: true };
       } catch (e2) {
         console.error('[Remote] 필기 제외 재시도도 실패:', e2);

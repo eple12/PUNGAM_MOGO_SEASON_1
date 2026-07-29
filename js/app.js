@@ -234,6 +234,7 @@ const App = (() => {
     S.warned = [];
     Store.save(true);
     beginExamBusy = false;
+    if (Remote.enabled) Remote.startExam({ id: S.student.id, name: S.student.name, noId: S.student.noId });
     enterExam();
   }
 
@@ -313,6 +314,7 @@ const App = (() => {
     Store.save(true);
 
     if (Remote.enabled) {
+      Remote.clearInProgress({ id: S.student.id, name: S.student.name, noId: S.student.noId });
       Remote.saveResult({
         id: S.student.id, name: S.student.name, noId: S.student.noId,
         reason, result: S.result,

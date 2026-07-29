@@ -372,13 +372,27 @@ const Tutorial = (() => {
     if (step === STEPS.length - 1) openOmr(false);
   }
 
+  /* 튜토리얼 마지막 버튼('완료 · 시험 시작')은 실제 200분 시험을 곧바로
+     시작시키는 되돌릴 수 없는 동작이라, 실수로 누르는 것을 막기 위해
+     한 번 더 확인을 받는다. */
+  async function confirmStart() {
+    const ok = await U.modal({
+      title: '정말 시작하시겠습니까?',
+      body: '<p>이 버튼을 누르면 <b>실제로 ' + CONFIG.durationMinutes + '분</b>이 시작됩니다.</p>' +
+            '<p><b>한 번 시작하면 멈추거나 되돌릴 수 없습니다.</b></p>' +
+            '<p>확실합니까?</p>',
+      buttons: [{ label: '아니오', value: false }, { label: '예, 시작합니다', value: true, kind: 'danger' }]
+    });
+    if (ok) finish();
+  }
+
   function bindGuide() {
     if (guideBound) return;
     guideBound = true;
     U.el('#tutBack').addEventListener('click', () => { if (step > 0) { step--; renderStep(); } });
     U.el('#tutNextBtn').addEventListener('click', () => {
       if (step < STEPS.length - 1) { step++; renderStep(); }
-      else finish();
+      else confirmStart();
     });
   }
 

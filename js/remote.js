@@ -36,6 +36,15 @@
  *          allow create: if true;
  *          allow update, delete: if false;
  *        }
+ *
+ *        // 응시 시작 시각 표시(관리자 대시보드의 "현재 응시 중" 목록용).
+ *        // 최종 채점 결과가 아니라 살아있는 상태 표시일 뿐이라, submissions 와
+ *        // 달리 자유롭게 쓰고 지울 수 있게 둔다(응시 종료 시 클라이언트가
+ *        // 스스로 지운다 — js/remote.js clearInProgress 참고).
+ *        match /inProgress/{docId} {
+ *          allow read: if true;
+ *          allow write: if true;
+ *        }
  *      }
  *    }
  *
@@ -58,6 +67,7 @@ const Remote = (() => {
 
   const COLLECTION = 'submissions';
   const SCORES_COLLECTION = 'scores';   // 익명 점수 분포 조회용(이름·학번 없음) — 결과 화면에서 가볍게 불러오려고 따로 둔다
+  const IN_PROGRESS_COLLECTION = 'inProgress';   // 응시 시작 시각 표시(관리자 대시보드 "현재 응시 중" 목록용)
   const STROKE_CHUNK_COLLECTION = 'strokeChunks';   // submissions/{key}/strokeChunks/{i} — 필기를 안전한 크기로 쪼개 저장하는 서브컬렉션
   const CHUNK_BYTE_LIMIT = 700 * 1024;   // Firestore 문서 한도(1MiB)보다 여유를 둔, 청크 하나가 넘지 않을 목표 크기
   let db = null;
@@ -250,6 +260,34 @@ const Remote = (() => {
     };
   }
 
+  /* 실제 200분 시험이 시작되는 순간(카운트다운 직후) 호출한다. 관리자
+     대시보드가 이 컬렉션을 읽어 "누가 언제부터 응시 중인지" 실시간으로
+     보여준다. 채점 결과가 아니므로 실패해도 시험 진행에는 영향 없다. */
+  async function startExam({ id, name, noId }) {
+    if (!enabled) return { ok: false };
+    const canonicalKey = (!noId && id) ? idDocKey(id) : nameDocKey(name);
+    try {
+      await db.collection(IN_PROGRESS_COLLECTION).doc(canonicalKey).set({
+        name: name || null,
+        id: (!noId && id) ? id : null,
+        noId: !!noId,
+        startedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e };
+    }
+  }
+
+  /* 시험이 끝나면(제출/시간종료 모두) "현재 응시 중" 표시를 지운다.
+     실패해도(네트워크 끊김 등) 채점 결과에는 영향 없다 — 관리자 서버가
+     남은 표시를 이미 끝난 submissions 와 대조해 걸러 준다. */
+  async function clearInProgress({ id, name, noId }) {
+    if (!enabled) return;
+    const canonicalKey = (!noId && id) ? idDocKey(id) : nameDocKey(name);
+    try { await db.collection(IN_PROGRESS_COLLECTION).doc(canonicalKey).delete(); } catch (e) { /* 무시 */ }
+  }
+
   /* 전체 응시자의 점수만(익명) 가져온다. 순위·분포 그래프용. submissions 전체를
      읽지 않고(필기 데이터까지 포함되어 무거워졌다) 점수만 담은 가벼운
      scores 컬렉션에서 바로 가져온다. */
@@ -266,5 +304,5 @@ const Remote = (() => {
 
   init();
 
-  return { get enabled() { return enabled; }, checkDuplicate, saveResult, fetchScores };
+  return { get enabled() { return enabled; }, checkDuplicate, saveResult, fetchScores, startExam, clearInProgress };
 })();

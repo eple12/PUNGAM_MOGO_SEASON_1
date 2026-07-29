@@ -20,6 +20,9 @@
 <body>
 
 <!-- ============================ 접속 잠금 화면 ============================ -->
+<!-- 접속 잠금 화면 — 지금은 통째로 주석 처리해 꺼둔 상태.
+     되살리려면 이 블록의 주석(<!-- ~ --)을 풀고, 아래 스크립트 목록에서
+     js/gate.js 의 주석도 풀고 App.boot() 직접 호출 줄은 지우면 된다.
 <div class="gate" id="gateOverlay">
   <form class="gate__box" id="gateForm">
     <h1 class="gate__title">제1회 풍암 모의고사</h1>
@@ -29,6 +32,8 @@
     <p class="gate__error" id="gateError" hidden>비밀번호가 올바르지 않습니다.</p>
   </form>
 </div>
+-->
+
 
 <!-- ============================ 시작 페이지 ============================ -->
 <section class="screen is-active" id="screenIntro">
@@ -360,7 +365,10 @@
 <script src="js/exam.js"></script>
 <script src="js/result.js"></script>
 <script src="js/app.js"></script>
-<!-- 접속 잠금: 비밀번호로 문항 데이터를 복호화한 뒤에야 App.boot() 을 호출한다 -->
-<script src="js/gate.js"></script>
+<!-- 접속 잠금(js/gate.js): 지금은 통째로 꺼둔 상태라 스크립트도 주석 처리하고
+     대신 바로 App.boot() 을 호출한다. 되살리려면 아래 스크립트 태그의 주석을
+     풀고 인라인 App.boot() 호출 줄은 지우면 된다(위 gate 오버레이 HTML도 함께). -->
+<!-- <script src="js/gate.js"></script> -->
+<script>App.boot();</script>
 </body>
 </html>

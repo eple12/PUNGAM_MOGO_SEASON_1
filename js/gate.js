@@ -7,9 +7,22 @@
  * ===================================================================== */
 
 (() => {
-  const STORAGE_KEY = 'pungam_mogo_gate_key_v1';
+  /* 지금은 잠금 화면을 끄고 바로 랜딩 페이지가 보이도록 한 상태다(문항도
+     js/questions.js 에 평문으로 되돌려 둠). 다시 잠그려면 이 값을 true 로
+     바꾸고 js/questions.js 를 빈 배열로, js/questions.enc.js 를 최신
+     암호문으로 되돌리면 된다(js/questions.js 상단 안내 참고). */
+  const GATE_ENABLED = false;
 
   const overlay = document.getElementById('gateOverlay');
+
+  if (!GATE_ENABLED) {
+    overlay.remove();
+    if (typeof App !== 'undefined' && typeof App.boot === 'function') App.boot();
+    return;
+  }
+
+  overlay.hidden = false;
+
   const form = document.getElementById('gateForm');
   const input = document.getElementById('gatePw');
   const errorEl = document.getElementById('gateError');

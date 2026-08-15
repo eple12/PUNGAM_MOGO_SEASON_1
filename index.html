@@ -210,7 +210,10 @@
 
   <!-- 문항 목록(가운데 번호 버튼을 누르면 열림) -->
   <div class="qlist" id="reQlist" hidden>
-    <div class="qlist__head"><span>문항 이동 · 마킹 현황</span></div>
+    <div class="qlist__head">
+      <span>문항 이동 · 마킹 현황</span>
+      <button class="btn btn--outline btn--sm" id="reClearInk" type="button">현재 문항 필기 지우기</button>
+    </div>
     <div class="qlist__grid" id="reQlistGrid"></div>
     <div class="qlist__legend">
       <span><i class="dot dot--done"></i>마킹 완료</span>
@@ -240,6 +243,9 @@
           <span class="omr-overlay__name">답안지</span>
         </div>
         <div class="omr-overlay__tools">
+          <span class="omr-overlay__toolLabel">필기구</span>
+          <button class="omrtool is-on" id="reOmrToolPen" type="button">컴퓨터용 사인펜</button>
+          <button class="omrtool" id="reOmrToolWhite" type="button">수정 테이프</button>
           <button class="btn btn--outline btn--sm" id="reOmrClose" type="button">닫기</button>
         </div>
       </div>

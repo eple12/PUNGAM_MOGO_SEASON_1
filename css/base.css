@@ -181,6 +181,41 @@ b,strong{font-weight:700}
 .scorechart__rank b{color:var(--navy);font-weight:800}
 .scorechart__empty{margin:0;padding:30px 0;text-align:center;font-size:13.5px;color:var(--ink-3)}
 
+/* ---------------- 점수 분포 그래프(점 — 만점이 작은 회차용) ----------------
+   막대그래프는 구간 개수(막대 폭 상한 34px)에 좌우돼 만점이 작으면 왼쪽에
+   몰려 보인다 — 대신 각 점수를 만점 대비 실제 위치(%)에 점으로 찍어,
+   만점 크기와 무관하게 항상 트랙 전체 폭에 걸쳐 퍼지게 한다. */
+.scoredots{margin-top:20px;padding:0 8px}
+.scoredots__track{
+  position:relative;margin:0 2px;
+  border-bottom:2px solid var(--line-2);
+}
+.scoredots__dot{
+  position:absolute;border-radius:50%;
+  background:var(--line-2);
+}
+.scoredots__dot.is-mine{
+  background:var(--gold, #C9962C);box-shadow:0 0 0 2px #fff;z-index:1;
+}
+/* 한 점수에 STACK_CAP(js/util.js) 넘게 몰리면 점 대신 이 배지로 나머지
+   인원수를 나타낸다 — 그렇지 않으면 극단적으로 많은 점을 다 그리다가
+   트랙이 한없이 길어지거나, 점 간격을 억지로 줄여 알아볼 수 없어진다. */
+.scoredots__more{
+  position:absolute;transform:translateX(-50%);
+  font-size:9px;font-weight:700;color:var(--ink-3);white-space:nowrap;
+  padding:1px 4px;border-radius:99px;background:var(--paper,#fff);border:1px solid var(--line-2);
+}
+.scoredots__more.is-mine{color:#fff;background:var(--gold, #C9962C);border-color:var(--gold, #C9962C)}
+.scoredots__mine{
+  position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;
+  background:var(--gold, #C9962C);opacity:.3;
+}
+.scoredots__axis{position:relative;height:16px;margin-top:6px}
+.scoredots__tick{
+  position:absolute;transform:translateX(-50%);
+  font-size:9px;color:var(--ink-3);white-space:nowrap;
+}
+
 /* ---------------- 답안지 스크롤 영역 ---------------- */
 .sheet-scroll{
   overflow:auto;-webkit-overflow-scrolling:touch;

@@ -165,6 +165,72 @@ const U = (() => {
            '<div class="scorechart__axis">' + axis + '</div>' + rank;
   }
 
+  /* ---------- 점수 분포 점그래프(스트립 플롯) ----------
+     회차 하나의 만점은 작다(문항 5개) — 5점 단위 막대그래프를 그대로 쓰면
+     구간이 서너 개뿐이라 막대들이 (막대 하나의 최대 폭 제한 때문에) 카드
+     왼쪽에 옹기종기 몰리고 오른쪽은 텅 비어 보였다. 막대/구간 개수에 기대는
+     대신, 각 점수를 만점 대비 실제 위치(%)에 점으로 찍는다 — 만점이
+     몇 점이든 점들이 항상 트랙 전체 폭에 걸쳐 퍼지므로 치우쳐 보이지 않는다.
+     같은 점수를 받은 사람은 그 자리에서 위로 쌓아 인원수를 나타낸다. */
+  function scoreDots(scores, mineScore, total) {
+    if (total == null) total = CONFIG.totalScore;
+    const n = scores.length;
+    if (!n) return '<p class="scorechart__empty">아직 집계된 결과가 없습니다.</p>';
+
+    const groups = new Map();
+    scores.forEach(s => groups.set(s, (groups.get(s) || 0) + 1));
+    const maxStack = Math.max.apply(null, Array.from(groups.values()));
+
+    const pctOf = s => total ? Math.min(100, Math.max(0, s / total * 100)) : 0;
+
+    // 한 점수에 응시자가 몰리면 점을 계속 쌓아 올리기만 해서는 트랙 높이를
+    // 넘어가 카드 밖으로 잘려 버린다(수십~수백 명이 같은 점수일 수도 있다).
+    // 그래서 쌓이는 정도에 따라 점 간격을 촘촘히 줄이고, 그래도 감당 못할
+    // 만큼 몰리면 일정 개수 위로는 점 대신 "+N" 배지 하나로 갈음한다.
+    const DOT = 11, DOT_MIN = 4, BUDGET = 120, STACK_CAP = 14;
+    const spacing = maxStack > 1 ? Math.max(DOT_MIN, Math.min(DOT, BUDGET / maxStack)) : DOT;
+    const trackH = Math.max(70, Math.min(150, Math.min(maxStack, STACK_CAP + 1) * spacing + 20));
+
+    const dots = [];
+    groups.forEach((count, score) => {
+      const pct = pctOf(score);
+      const isMine = mineScore != null && score === mineScore;
+      const shown = Math.min(count, STACK_CAP);
+      for (let i = 0; i < shown; i++) {
+        dots.push('<span class="scoredots__dot' + (isMine ? ' is-mine' : '') +
+          '" style="left:' + pct.toFixed(2) + '%;bottom:' + (i * spacing) + 'px;width:' + spacing + 'px;height:' + spacing + 'px;margin-left:' + (-spacing / 2) + 'px" title="' + score + '점 · ' + count + '명"></span>');
+      }
+      if (count > STACK_CAP) {
+        dots.push('<span class="scoredots__more' + (isMine ? ' is-mine' : '') + '" style="left:' + pct.toFixed(2) + '%;bottom:' + (STACK_CAP * spacing) + 'px" title="' + score + '점 · ' + count + '명">+' + (count - STACK_CAP) + '</span>');
+      }
+    });
+
+    const mineMarker = mineScore != null
+      ? '<div class="scoredots__mine" style="left:' + pctOf(mineScore).toFixed(2) + '%"></div>' : '';
+
+    // 눈금 — 막대그래프와 동일하게 5점 간격 경계를 전부 표시한다.
+    const bucketSize = 5;
+    const tickCount = Math.max(1, Math.floor(total / bucketSize));
+    let ticks = '';
+    for (let i = 0; i <= tickCount; i++) {
+      const val = i * bucketSize;
+      ticks += '<span class="scoredots__tick" style="left:' + pctOf(val).toFixed(2) + '%">' + val + '</span>';
+    }
+
+    let rank = '';
+    if (mineScore != null) {
+      const better = scores.filter(s => s > mineScore).length;
+      const r = better + 1;
+      const pct = Math.max(1, Math.round(r / n * 100));
+      rank = '<p class="scorechart__rank">전체 <b>' + n + '명</b> 중 <b>' + r + '위</b> · 상위 <b>' + pct + '%</b></p>';
+    }
+
+    return '<div class="scoredots">' +
+             '<div class="scoredots__track" style="height:' + trackH + 'px">' + mineMarker + dots.join('') + '</div>' +
+             '<div class="scoredots__axis">' + ticks + '</div>' +
+           '</div>' + rank;
+  }
+
   /* ---------- 모달 ---------- */
   let modalResolve = null;
   function modal(opts) {
@@ -211,5 +277,5 @@ const U = (() => {
     }, ms || 2200);
   }
 
-  return { el, els, make, esc, questionHtml, typeset, clock, durationText, CIRCLED, circ, scoreChart, modal, closeModal, toast, penEvents };
+  return { el, els, make, esc, questionHtml, typeset, clock, durationText, CIRCLED, circ, scoreChart, scoreDots, modal, closeModal, toast, penEvents };
 })();

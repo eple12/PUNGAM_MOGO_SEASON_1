@@ -791,6 +791,7 @@ const RoundApp = (() => {
   let reScroll, rePaper, reInner, reCanvas, reInk;
   let reInkMounted = false, reInkLoadedFor = null;
   let inkTool = 'pen';        // pen | eraser
+  let reOmrTool = 'pen';      // pen | white(수정테이프) — 답안지(OMR) 마킹 도구, js/omr.js 의 setTool 과 같은 개념
   let resizeT = null;
 
   function ensureInk() {
@@ -1217,14 +1218,18 @@ const RoundApp = (() => {
       chartHost.innerHTML = '<p class="scorechart__empty">순위 정보를 사용할 수 없습니다.</p>';
     } else {
       Remote.fetchRoundScores(def.key).then(r => {
+        // 회차 만점은 작아서(문항 5개) 막대그래프 대신 점그래프를 쓴다
+        // — U.scoreChart 는 막대 폭 상한 때문에 만점이 작으면 왼쪽에
+        // 몰려 보이지만, U.scoreDots 는 만점 대비 실제 위치에 점을 찍어
+        // 항상 트랙 전체 폭에 걸쳐 퍼진다.
         chartHost.innerHTML = r.ok
-          ? U.scoreChart(r.scores, result.score, result.totalPoints)
+          ? U.scoreDots(r.scores, result.score, result.totalPoints)
           : '<p class="scorechart__empty">순위 정보를 불러오지 못했습니다.</p>';
       });
     }
   }
 
-  function enterRound(key) {
+  async function enterRound(key) {
     stopRoundsTicker();
     const def = ROUND_DEFS.find(d => d.key === key);
     if (!def) { showRoundsScreen(); return; }
@@ -1234,6 +1239,19 @@ const RoundApp = (() => {
     if (S.roundSubmitted && S.roundSubmitted[key] && S.roundResults && S.roundResults[key]) {
       showRoundResult(def, S.roundResults[key]);
       return;
+    }
+
+    // 아직 한 번도 시작하지 않은 회차라면(타이머가 없다면) 실수로 시작하지
+    // 않도록 한 번 더 확인을 받는다 — 이미 시작해 둔 회차를 새로고침 등으로
+    // 다시 불러오는 경우(타이머가 이미 있음)에는 다시 묻지 않는다.
+    const fresh = !(S.roundTimers && S.roundTimers[key]);
+    if (fresh) {
+      const ok = await U.modal({
+        title: def.day + ' 시작',
+        body: '<p>정말 시작하시겠습니까? 시작과 동시에 ' + ROUND_MINUTES + '분 타이머가 흐르기 시작하며, 화면을 나가도 계속 흐릅니다.</p>',
+        buttons: [{ label: '아니오', value: false }, { label: '예, 시작합니다', value: true, kind: 'primary' }]
+      });
+      if (!ok) { showRoundsScreen(); return; }
     }
 
     S.phase = 'roundExam';
@@ -1326,18 +1344,50 @@ const RoundApp = (() => {
     U.el('#rePrev').addEventListener('click', () => showReQuestion(reLocalIdx - 1));
     U.el('#reNext').addEventListener('click', () => showReQuestion(reLocalIdx + 1));
 
+    // 튜토리얼(js/tutorial.js 의 #tutClearInk)과 동일한 기능 — 문항 이동
+    // 목록(#reQlist) 안에 두어 "지금 보고 있는 문항의 필기만 전부 지운다"는
+    // 걸 명확히 한다. 되돌릴 수 없어 한 번 더 확인을 받는다.
+    U.el('#reClearInk').addEventListener('click', async () => {
+      if (roundLocked()) return;
+      const no = reLocalIdx + 1;
+      const ok = await U.modal({
+        title: '필기 지우기',
+        body: '<p>현재 문항(' + no + '번)의 필기를 모두 지웁니다. 되돌릴 수 없습니다.</p>',
+        buttons: [{ label: '취소', value: false }, { label: '지우기', value: true, kind: 'danger' }]
+      });
+      if (!ok) return;
+      reInk.clear();
+      saveRoundStrokes();
+      updateInkUndoRedo();
+      U.toast('필기를 지웠습니다.');
+    });
+
     U.el('#reOmrTab').addEventListener('click', () => openReOmr(true));
     U.el('#reOmrClose').addEventListener('click', () => openReOmr(false));
     U.el('#reSubmit').addEventListener('click', askRoundSubmit);
 
+    U.el('#reOmrToolPen').addEventListener('click', () => {
+      reOmrTool = 'pen';
+      U.el('#reOmrToolPen').classList.add('is-on');
+      U.el('#reOmrToolWhite').classList.remove('is-on');
+    });
+    U.el('#reOmrToolWhite').addEventListener('click', () => {
+      reOmrTool = 'white';
+      U.el('#reOmrToolWhite').classList.add('is-on');
+      U.el('#reOmrToolPen').classList.remove('is-on');
+    });
+
+    // 실제 OMR처럼 사인펜으로 칠한 칸은 같은 칸을 다시 눌러도 지워지지
+    // 않는다 — 지우려면 수정테이프 도구로 바꿔서 지금 칠해진 칸을 눌러야
+    // 한다(js/omr.js 의 setTool('white') 과 완전히 같은 규칙).
     U.el('#roundOmr').addEventListener('click', e => {
       if (roundLocked()) return;
       const btn = e.target.closest('.bub');
       if (!btn) return;
       const no = +btn.dataset.q, slot = btn.dataset.slot, v = +btn.dataset.v;
       const a = S.answers[no];
-      if (slot === 'c') a.choice = (a.choice === v ? null : v);
-      else a.digits[+slot] = (a.digits[+slot] === v ? null : v);
+      if (slot === 'c') a.choice = (reOmrTool === 'white') ? (a.choice === v ? null : a.choice) : v;
+      else a.digits[+slot] = (reOmrTool === 'white') ? (a.digits[+slot] === v ? null : a.digits[+slot]) : v;
       paintMiniOmr();
       Store.save();
       if (no === reCurrentQs[reLocalIdx].no) {

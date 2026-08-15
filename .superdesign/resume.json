@@ -1,0 +1,18 @@
+{
+  "projectId": "a61d24ea-370d-4a3d-863b-f043696b40f0",
+  "projectUrl": "https://superdesign.dev/teams/1ea85959-cab9-4292-9573-af45b3015faa/projects/a61d24ea-370d-4a3d-863b-f043696b40f0",
+  "targets": [
+    {
+      "target": "landing (#screenIntro / .rlanding)",
+      "sourceFiles": ["index.html:36:48", "css/rounds.css:1:24", "css/base.css"],
+      "baselineDraftId": "9410231f-6396-4e31-ae36-8a7ca16fb89b",
+      "activeDraftId": "a0aa1830-3892-47ef-bfe3-3b764672cf9f",
+      "branches": [
+        { "draftId": "770ca2fa-2c6b-4e7d-a03e-cb3227d20c00", "title": "Premium Exam Paper Landing" },
+        { "draftId": "a0aa1830-3892-47ef-bfe3-3b764672cf9f", "title": "Enhanced Momentum-Driven Landing" }
+      ],
+      "status": "implemented_by_hand",
+      "note": "Draft 2(모멘텀) 방향을 채택. SuperDesign 캔버스 HTML을 그대로 쓰지 않고, 실제 코드베이스(vanilla HTML/CSS/JS)에 맞춰 index.html·css/rounds.css·js/rounds.js에 직접 재구현하고 anime.js 인터랙션을 추가함."
+    }
+  ]
+}

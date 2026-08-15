@@ -377,11 +377,9 @@ const Tutorial = (() => {
      한 번 더 확인을 받는다. */
   async function confirmStart() {
     const ok = await U.modal({
-      title: '정말 시작하시겠습니까?',
-      body: '<p>이 버튼을 누르면 <b>실제로 ' + CONFIG.durationMinutes + '분</b>이 시작됩니다.</p>' +
-            '<p><b>한 번 시작하면 멈추거나 되돌릴 수 없습니다.</b></p>' +
-            '<p>확실합니까?</p>',
-      buttons: [{ label: '아니오', value: false }, { label: '예, 시작합니다', value: true, kind: 'danger' }]
+      title: '튜토리얼을 마칠까요?',
+      body: '<p>확인을 누르면 튜토리얼을 마치고 실제 문제로 넘어갑니다.</p>',
+      buttons: [{ label: '아니오', value: false }, { label: '예, 마칩니다', value: true, kind: 'primary' }]
     });
     if (ok) finish();
   }

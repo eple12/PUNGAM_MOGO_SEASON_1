@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="css/omr.css">
 <link rel="stylesheet" href="css/tutorial.css">
 <link rel="stylesheet" href="css/result.css">
+<link rel="stylesheet" href="css/rounds.css">
 </head>
 <body>
 
@@ -31,77 +32,215 @@
 </div>
 
 
-<!-- ============================ 시작 페이지 ============================ -->
+<!-- ============================ 랜딩 페이지 ============================ -->
 <section class="screen is-active" id="screenIntro">
-  <div class="intro">
 
-    <header class="intro__head">
-      <img class="intro__logo" src="img/team_logo.png" alt="">
-      <h1 class="intro__title" id="introTitle">제1회 풍암 실수킬러 모의고사</h1>
-      <p class="intro__sub" id="introSub">수학 영역 · 대수</p>
-      <ul class="intro__meta" id="introMeta"></ul>
-    </header>
+  <!-- 히어로 — 첫 화면 전체를 채우는, 3D 로 등장하는 엠블럼 오브젝트가 시선을
+       먼저 붙잡는다. 아래 .rlbody 는 스크롤해야 보인다(스크롤 유도는
+       .rlscrollcue). -->
+  <div class="rlhero" id="rlHero">
+    <div class="rlhero__bg" aria-hidden="true"></div>
 
-    <div class="device-banner">
-      <svg class="device-banner__icon" viewBox="0 0 24 24" width="30" height="30" aria-hidden="true">
-        <rect x="3" y="6" width="18" height="12" rx="2.2" fill="none" stroke="currentColor" stroke-width="2"/>
-        <path d="M3 9.5h18M8 15.5h2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <div class="rlmedal-stage">
+      <span class="rlmedal__pulse" id="rlMedalPulse" aria-hidden="true"></span>
+      <div class="rlmedal" id="rlMedal">
+        <span class="rlmedal__ring" aria-hidden="true"></span>
+        <img class="rlmedal__logo" src="img/team_logo.png" alt="">
+      </div>
+    </div>
+
+    <div class="rlanding__eyebrow" data-rl-in>
+      <span class="rlanding__eyebrow-line" aria-hidden="true"></span>
+      <span class="rlanding__eyebrow-text" id="rlSub">수학 영역 · 대수</span>
+      <span class="rlanding__eyebrow-line" aria-hidden="true"></span>
+    </div>
+
+    <h1 class="rlanding__title" id="rlTitle" data-rl-in>제1회 풍암 실수킬러 모의고사</h1>
+
+    <button class="rlscrollcue" id="rlScrollCue" type="button" aria-label="아래로 스크롤해 자세히 보기">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+        <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      <div class="device-banner__body">
-        <strong>태블릿(갤럭시탭 · 아이패드)에서 응시하십시오</strong>
-        <span>가로·세로 화면 모두 사용할 수 있습니다.<br>다만 <b>시험 도중 화면 방향을 바꾸면 필기가 찌그러질 수 있으니</b> 한 번 정한 방향을 그대로 유지하는 것을 권장합니다.</span>
-      </div>
-    </div>
-
-    <div class="intro__grid">
-
-      <article class="card card--wide card--event" id="eventCard" hidden>
-        <h2 class="card__title">이벤트 안내</h2>
-        <p class="event__period" id="eventPeriod"></p>
-        <ul class="event__list" id="eventList"></ul>
-        <p class="event__extra" id="eventExtra"></p>
-      </article>
-
-      <article class="card card--wide">
-        <h2 class="card__title">출제진</h2>
-        <div class="authors" id="authorList"></div>
-      </article>
-
-      <article class="card">
-        <h2 class="card__title">응시 유의사항</h2>
-        <ol class="rules" id="ruleList"></ol>
-      </article>
-
-      <article class="card">
-        <h2 class="card__title">응시 방법</h2>
-        <div class="steps" id="stepList"></div>
-        <div class="notice" id="deviceNotice">
-          <strong>기기 안내</strong>
-          <span>태블릿 <b>가로 화면</b>에 최적화되어 있습니다. 스타일러스가 있으면 펜으로 필기하고 손가락으로 화면을 넘기십시오.<br>스타일러스가 없으면 상단의 <em>손가락 필기</em>를 켠 뒤, 두 손가락으로 화면을 넘기면 됩니다.</span>
-        </div>
-      </article>
-
-    </div>
-
-    <footer class="intro__foot">
-      <div class="intro__warn">
-        <strong>주의사항</strong>
-        <p><b>한 사람은 단 한 번만 응시할 수 있습니다.</b> 재응시는 허용되지 않습니다.</p>
-        <p><b>본인확인을 위해 반드시 실명으로 기입</b>해야 합니다.</p>
-        <p>본 시험지의 무단 복제 및 배포를 금지합니다.<br>또한 문항 및 지문의 전부 또는 일부를 생성형 AI에 입력하는 행위를 금지합니다.</p>
-      </div>
-      <button class="btn btn--primary btn--xl" id="btnStart" type="button">인적사항 작성</button>
-      <p class="intro__credit" id="introCredit"></p>
-    </footer>
-
+    </button>
   </div>
 
-  <!-- 첫 페이지에서만 보이는 전체 응시자 점수 분포 버튼 -->
-  <button class="scoredist-btn" id="btnScoreDist" type="button" aria-label="전체 응시자 점수 분포 보기">
-    <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
-      <path d="M5 20V13M12 20V8M19 20V4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
+  <!-- 본문 — 스크롤하면 순서대로 나타난다(js/rounds.js 의 IntersectionObserver).
+       .rlink 는 배경의 만년필 오브젝트 + 잉크 곡선(스크롤에 맞춰 그려짐),
+       콘텐츠 뒤에 z-index:-1 로 깔린다. -->
+  <div class="rlbody">
+    <div class="rlink" id="rlInk" aria-hidden="true">
+      <svg class="rlink__svg" id="rlInkSvg"></svg>
+      <!-- 만년필 — 닙(펜촉) 끝이 svg 로컬 좌표 (0,0) 에 정확히 오도록 그려서,
+           js/rounds.js 가 이 지점을 회전 피벗(transform-origin, css/rounds.css)
+           삼아 펜촉이 실제로 곡선 끝에 얹힌 것처럼 보이게 한다.
+           viewBox 를 렌더 크기(66×18)와 1:1 로 맞춰 로컬 좌표 = px 가 되게
+           했다(스케일 계산 없이 transform-origin 을 상수로 바로 쓸 수 있게). -->
+      <div class="rlink__pen" id="rlInkPen">
+        <svg viewBox="-64 -9 68 18" width="66" height="18">
+          <!-- 배럴(몸통) -->
+          <path class="rlpen__barrel" d="M-22 -6 L-54 -6 Q-60 -6 -60 0 Q-60 6 -54 6 L-22 6 Z"/>
+          <!-- 배럴의 원기둥 하이라이트 -->
+          <path class="rlpen__sheen" d="M-25 -3.8 L-51 -3.8"/>
+          <!-- 캡 밴드 -->
+          <rect class="rlpen__band" x="-27.5" y="-6.3" width="2.4" height="12.6" rx="1.1"/>
+          <!-- 그립(닙과 배럴을 잇는 원뿔) -->
+          <path class="rlpen__grip" d="M-16 -4.5 L-22 -6 L-22 6 L-16 4.5 Z"/>
+          <!-- 닙(펜촉) -->
+          <path class="rlpen__nib" d="M0 0 L-16 -4.5 L-16 4.5 Z"/>
+          <!-- 닙 슬릿 -->
+          <path class="rlpen__slit" d="M-1.2 0 L-15 0"/>
+          <!-- 숨구멍 -->
+          <circle class="rlpen__hole" cx="-10" cy="0" r="1.1"/>
+        </svg>
+      </div>
+    </div>
+
+    <p class="rlanding__desc" data-scroll-in>
+      한 명의 출제자가 다섯 문항씩 맡은 여섯 개의 회차(Day 01~06)로 나누어 응시합니다.<br>
+      회차마다 색이 다르며, 원하는 순서대로 골라 풀 수 있습니다. 인적사항은 처음 한 번만 작성합니다.
+    </p>
+
+    <div class="rlanding__collection" data-scroll-in>
+      <div class="rlanding__section-head">
+        <span class="rlanding__section-label">회차 컬렉션</span>
+        <span class="rlanding__collection-progress" id="rlProgress"></span>
+      </div>
+      <div class="rlanding__badges" id="rlChips"></div>
+    </div>
+
+    <div class="rlanding__event" data-scroll-in id="rlEvent" hidden>
+      <div class="rlanding__section-head">
+        <span class="rlanding__section-label">이벤트 안내</span>
+      </div>
+      <!-- .card--event 는 css/intro.css 에 이미 정의된, 예전 시작 페이지에서
+           쓰던 파란 그라디언트 이벤트 카드 스타일을 그대로 재사용한다. -->
+      <div class="card card--event">
+        <p class="event__period" id="rlEventPeriod"></p>
+        <ul class="event__list" id="rlEventList"></ul>
+        <p class="event__extra" id="rlEventExtra"></p>
+      </div>
+    </div>
+
+    <div class="rlanding__authorsec" data-scroll-in>
+      <div class="rlanding__section-head">
+        <span class="rlanding__section-label">출제진 소개</span>
+      </div>
+      <div class="rlauthors" id="rlAuthors"></div>
+    </div>
+
+    <div class="rlanding__rulesec" data-scroll-in>
+      <div class="rlanding__section-head">
+        <span class="rlanding__section-label">응시 유의사항</span>
+      </div>
+      <!-- .card 도 css/intro.css 재사용(흰 배경 박스) -->
+      <div class="card">
+        <ul class="rules" id="rlRules"></ul>
+      </div>
+    </div>
+
+    <button class="btn btn--primary btn--xl rlanding__cta" id="btnEnterRounds" type="button" data-scroll-in>
+      <span>응시 입장</span>
+    </button>
+  </div>
+</section>
+
+<!-- ============================ 회차 선택 ============================ -->
+<section class="screen" id="screenRounds">
+  <div class="rounds">
+    <header class="rounds__head">
+      <button class="btn btn--text" id="btnBackLanding" type="button">← 랜딩으로</button>
+      <h2 class="rounds__title">회차 선택</h2>
+      <p class="rounds__hint">카드를 눌러 원하는 회차부터 시작하십시오. 인적사항은 최초 1회만 작성합니다.</p>
+    </header>
+    <div class="rgrid" id="roundGrid"></div>
+  </div>
+</section>
+
+<!-- ============================ 회차 문제(한 번에 한 문제) + 답안지 ============================ -->
+<section class="screen" id="screenRoundExam">
+  <header class="rebar">
+    <div class="rebar__left">
+      <button class="btn btn--text" id="btnBackRounds" type="button">← 회차 목록</button>
+      <div class="rebar__title">
+        <span class="rebar__day" id="reDay"></span>
+        <span class="rebar__author" id="reAuthor"></span>
+        <div class="clock" id="reClockWrap">
+          <span class="clock__label">남은 시간</span>
+          <span class="clock__time" id="reClock">30:00</span>
+        </div>
+      </div>
+    </div>
+    <div class="rebar__center">
+      <button class="navbtn" id="rePrev" type="button" aria-label="이전 문항">◀</button>
+      <button class="qpick" id="reQpickBtn" type="button">
+        <span class="qpick__no" id="reQpickNo">1</span><span class="qpick__of">/ 5</span>
+      </button>
+      <button class="navbtn" id="reNext" type="button" aria-label="다음 문항">▶</button>
+    </div>
+    <div class="rebar__right">
+      <div class="tools" role="group" aria-label="필기도구">
+        <button class="tool is-on" id="reToolPen" type="button">펜</button>
+        <button class="tool" id="reToolEraser" type="button">획 지우개</button>
+        <button class="tool tool--sep" id="reToolFinger" type="button">손가락 필기</button>
+      </div>
+      <div class="undoredo" role="group" aria-label="실행취소·다시 실행">
+        <button class="navbtn" id="reUndo" type="button" aria-label="실행취소" disabled>
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
+        </button>
+        <button class="navbtn" id="reRedo" type="button" aria-label="다시 실행" disabled>
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"/></svg>
+        </button>
+      </div>
+      <button class="btn btn--outline btn--sm" id="reSubmit" type="button">회차 제출</button>
+    </div>
+  </header>
+
+  <!-- 문항 목록(가운데 번호 버튼을 누르면 열림) -->
+  <div class="qlist" id="reQlist" hidden>
+    <div class="qlist__head"><span>문항 이동 · 마킹 현황</span></div>
+    <div class="qlist__grid" id="reQlistGrid"></div>
+    <div class="qlist__legend">
+      <span><i class="dot dot--done"></i>마킹 완료</span>
+      <span><i class="dot dot--todo"></i>미마킹</span>
+      <span><i class="dot dot--cur"></i>현재 문항</span>
+    </div>
+  </div>
+
+  <div class="reBody">
+    <div class="reScroll" id="reScroll">
+      <div class="rePaper" id="rePaper">
+        <div class="rePaper__inner" id="reQuestions"></div>
+        <canvas class="reInk" id="reInkCanvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- OMR 귀퉁이 탭(튜토리얼·본시험과 동일한 방식) -->
+  <button class="omr-tab" id="reOmrTab" type="button" aria-label="답안지 열기">
+    <span class="omr-tab__word">OMR</span>
+    <span class="omr-tab__sub">답안지</span>
   </button>
+  <div class="omr-overlay" id="reOmrOverlay" aria-hidden="true">
+    <div class="omr-overlay__panel">
+      <div class="omr-overlay__bar">
+        <div class="omr-overlay__title">
+          <span class="omr-overlay__name">답안지</span>
+        </div>
+        <div class="omr-overlay__tools">
+          <button class="btn btn--outline btn--sm" id="reOmrClose" type="button">닫기</button>
+        </div>
+      </div>
+      <div class="sheet-scroll">
+        <div class="reOmr__hd">답 란</div>
+        <div class="reOmr__grid" id="roundOmr"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 회차 채점 결과 ============================ -->
+<section class="screen" id="screenRoundResult">
+  <div id="roundResultRoot"></div>
 </section>
 
 <!-- ============================ 인적사항 작성 ============================ -->
@@ -344,6 +483,7 @@
 
 <script src="vendor/katex/katex.min.js"></script>
 <script src="vendor/katex/contrib/auto-render.min.js"></script>
+<script src="vendor/anime/anime.min.js"></script>
 <!-- Firebase(중복 응시 확인·결과 저장용). js/remote.js 의 FIREBASE_CONFIG 를
      채우기 전에는 로드는 되어도 아무 동작도 하지 않는다. -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -361,6 +501,7 @@
 <script src="js/exam.js"></script>
 <script src="js/result.js"></script>
 <script src="js/app.js"></script>
+<script src="js/rounds.js"></script>
 <script src="js/gate.js"></script>
 </body>
 </html>

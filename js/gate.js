@@ -13,7 +13,7 @@
 
   if (!GATE_ENABLED) {
     overlay.remove();
-    if (typeof App !== 'undefined' && typeof App.boot === 'function') App.boot();
+    if (typeof RoundApp !== 'undefined' && typeof RoundApp.boot === 'function') RoundApp.boot();
     return;
   }
 
@@ -73,9 +73,9 @@
   function unlockUI() {
     document.removeEventListener('keydown', blockKeysWhileLocked, true);
     overlay.remove();
-    /* App 은 js/app.js 에서 top-level const 로 선언되어 있어 window.App 이
-       아니라 전역 스코프의 맨 이름(App)으로만 접근할 수 있다. */
-    if (typeof App !== 'undefined' && typeof App.boot === 'function') App.boot();
+    /* RoundApp 은 js/rounds.js 에서 top-level const 로 선언되어 있어
+       window.RoundApp 이 아니라 전역 스코프의 맨 이름으로만 접근할 수 있다. */
+    if (typeof RoundApp !== 'undefined' && typeof RoundApp.boot === 'function') RoundApp.boot();
   }
 
   function showError() {

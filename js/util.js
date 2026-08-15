@@ -39,10 +39,12 @@ const U = (() => {
       .split(NB).join('&nbsp;');
   }
 
-  /* 문제 본문 → HTML */
-  function questionHtml(q) {
+  /* 문제 본문 → HTML
+     numLabel: 문항 번호 자리에 넣을 표시 문자열(기본은 "n.", 회차별 문항처럼
+     전역 문항번호와 다른 표시가 필요하면 호출부에서 넘긴다) */
+  function questionHtml(q, numLabel) {
     const blocks = q.body.split(/\n[ \t]*\n/);
-    const numTag = '<span class="qnum">' + q.no + '.</span>';
+    const numTag = '<span class="qnum">' + (numLabel != null ? numLabel : q.no + '.') + '</span>';
     let out = '';
     let numberPlaced = false;
 
@@ -128,8 +130,8 @@ const U = (() => {
      scores: 전체 응시자 점수 배열, mineScore: 본인 점수(없으면 null → 순위 없이 회색만)
      응시자 한 명당 막대 하나가 아니라 5점 단위 구간별 인원수(히스토그램)로 그린다.
      응시자가 아주 많아져도(수백~수천 명) 막대 개수가 늘지 않아 가로 스크롤 없이 항상 한눈에 들어온다. */
-  function scoreChart(scores, mineScore) {
-    const total = CONFIG.totalScore;
+  function scoreChart(scores, mineScore, total) {
+    if (total == null) total = CONFIG.totalScore;
     const n = scores.length;
     if (!n) return '<p class="scorechart__empty">아직 집계된 결과가 없습니다.</p>';
 

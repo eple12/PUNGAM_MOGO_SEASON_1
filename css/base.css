@@ -24,6 +24,14 @@
   --omr-soft:#FADCE7;
   --omr-mark:#16181C;
 
+  /* 회차(출제자) 테마 색 — Day 01~06, 은은하고 채도를 낮춘 '고급스러운' 톤 */
+  --round-1:#C08A96; --round-1-soft:#F6E8EB;   /* Day 01 · 벚꽃빛 연분홍 */
+  --round-2:#899C68; --round-2-soft:#EEF1E3;   /* Day 02 · 연두색 */
+  --round-3:#C1813F; --round-3-soft:#F7E9D8;   /* Day 03 · 주황색 */
+  --round-4:#9B3E42; --round-4-soft:#F3E1E1;   /* Day 04 · 빨간색 */
+  --round-5:#2E4A70; --round-5-soft:#E3E8EF;   /* Day 05 · 진한 파란색 */
+  --round-6:#5B4270; --round-6-soft:#E9E2EE;   /* Day 06 · 진한 보라색 */
+
   --font:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic','Segoe UI',Roboto,sans-serif;
   /* 평가원 문제지 제목 계열(함초롬바탕 → 바탕 → 기기별 명조) */
   --font-exam:'HCR Batang','함초롬바탕','HCR Batang LVT',Batang,'바탕','Noto Serif KR','Noto Serif CJK KR','Nanum Myeongjo','Apple SD Gothic Neo',serif;

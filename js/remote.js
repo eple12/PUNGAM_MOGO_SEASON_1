@@ -69,6 +69,35 @@ const Remote = (() => {
   const SCORES_COLLECTION = 'scores';   // 익명 점수 분포 조회용(이름·학번 없음) — 결과 화면에서 가볍게 불러오려고 따로 둔다
   const IN_PROGRESS_COLLECTION = 'inProgress';   // 응시 시작 시각 표시(관리자 대시보드 "현재 응시 중" 목록용)
   const STROKE_CHUNK_COLLECTION = 'strokeChunks';   // submissions/{key}/strokeChunks/{i} — 필기를 안전한 크기로 쪼개 저장하는 서브컬렉션
+
+  /* 회차(Day 01~06) 배포용 컬렉션 — 기존 단일 200분 시험의 submissions/scores/
+     inProgress 는 절대 건드리지 않고, 완전히 별도의 컬렉션에 회차별 제출을
+     쌓는다. 문서 키는 "학번 또는 이름 문서키" + "__" + 회차key(r1~r6) 라서
+     같은 학생이 회차마다 각각 한 번씩만 제출할 수 있다(문서 생성 규칙으로
+     재제출 차단 — 아래 보안 규칙 참고).
+     Firestore 콘솔에 아래 규칙을 추가해야 실제로 저장된다:
+       match /roundSubmissions/{docId} {
+         allow read: if true;
+         allow create: if !exists(/databases/$(database)/documents/roundSubmissions/$(docId));
+         allow update, delete: if false;
+         match /strokeChunks/{chunkId} {
+           allow read: if true;
+           allow create: if exists(/databases/$(database)/documents/roundSubmissions/$(docId));
+           allow update, delete: if false;
+         }
+       }
+       match /roundScores/{docId} {
+         allow read: if true;
+         allow create: if true;
+         allow update, delete: if false;
+       }
+       match /roundInProgress/{docId} {
+         allow read: if true;
+         allow write: if true;
+       } */
+  const ROUND_COLLECTION = 'roundSubmissions';
+  const ROUND_SCORES_COLLECTION = 'roundScores';
+  const ROUND_IN_PROGRESS_COLLECTION = 'roundInProgress';
   const CHUNK_BYTE_LIMIT = 700 * 1024;   // Firestore 문서 한도(1MiB)보다 여유를 둔, 청크 하나가 넘지 않을 목표 크기
   let db = null;
   let enabled = false;
@@ -158,9 +187,9 @@ const Remote = (() => {
      개수를 세는 방식으로 확인한다 — submissions/{docId} 문서는 생성 후
      수정할 수 없는 보안 규칙이라, 여기서 성공 개수를 그 문서에 나중에
      써 넣을 수 없다.) */
-  async function saveStrokeChunks(canonicalKey, chunks) {
+  async function saveStrokeChunks(collectionName, canonicalKey, chunks) {
     if (!chunks.length) return 0;
-    const col = db.collection(COLLECTION).doc(canonicalKey).collection(STROKE_CHUNK_COLLECTION);
+    const col = db.collection(collectionName).doc(canonicalKey).collection(STROKE_CHUNK_COLLECTION);
     let saved = 0;
     for (let i = 0; i < chunks.length; i++) {
       if (await setWithRetry(col.doc(String(i)), chunks[i])) saved++;
@@ -252,7 +281,7 @@ const Remote = (() => {
 
     // 결과(점수·답안)는 이미 안전하게 저장됐다. 필기는 따로 조각내어 저장하며,
     // 여기서 일부/전부 실패하더라도 위 결과에는 영향이 없다.
-    const saved = await saveStrokeChunks(canonicalKey, chunks);
+    const saved = await saveStrokeChunks(COLLECTION, canonicalKey, chunks);
     return {
       saved: true,
       strokesDropped: chunks.length > 0 && saved === 0,
@@ -302,7 +331,118 @@ const Remote = (() => {
     }
   }
 
+  /* ================= 회차(Day 01~06) 배포용 ================= */
+
+  function roundCanonicalKey(round, id, name, noId) {
+    return ((!noId && id) ? idDocKey(id) : nameDocKey(name)) + '__' + round;
+  }
+
+  /* checkDuplicate 와 같은 방식이되, 회차별로 독립된 문서를 본다 — 같은
+     학생도 회차마다 각각 한 번씩 제출할 수 있어야 하므로 회차key를 문서
+     키에 포함해야 한다. */
+  async function checkRoundDuplicate({ id, name, noId, round }) {
+    if (!enabled) return { duplicate: false, checked: false };
+    try {
+      const checks = [];
+      if (!noId && id) checks.push(db.collection(ROUND_COLLECTION).doc(idDocKey(id) + '__' + round).get());
+      if (name) checks.push(db.collection(ROUND_COLLECTION).doc(nameDocKey(name) + '__' + round).get());
+      const snaps = await Promise.all(checks);
+      const hit = snaps.find(s => s.exists);
+      return { duplicate: !!hit, checked: true, data: hit ? hit.data() : null };
+    } catch (e) {
+      return { duplicate: false, checked: false, error: e };
+    }
+  }
+
+  /* saveResult 와 같은 구조(학번/이름 중 하나에 전체 내용, 다른 한쪽엔 표시용
+     마커만)를 회차 단위로 그대로 적용한다. 기존 submissions/scores 컬렉션은
+     전혀 건드리지 않고 roundSubmissions/roundScores 에만 쓴다. */
+  async function saveRoundResult({ id, name, noId, round, day, author, reason, result, strokes, strokeSize }) {
+    if (!enabled) return { saved: false };
+    const hasId = !noId && !!id;
+    const canonicalKey = roundCanonicalKey(round, id, name, noId);
+    const markerKey = hasId && name ? (nameDocKey(name) + '__' + round) : null;
+
+    const chunks = buildStrokeChunks(strokes, []);
+
+    const basePayload = {
+      round, day: day || null, author: author || null,
+      name: name || null,
+      id: (!noId && id) ? id : null,
+      noId: !!noId,
+      score: result.score,
+      right: result.right,
+      wrong: result.wrong,
+      blank: result.blank,
+      totalPoints: result.totalPoints,
+      answers: result.rows.map(r => ({ no: r.no, mine: r.mine, ok: r.ok })),
+      usedMs: result.used,
+      reason: reason,
+      strokeSize: strokeSize || {},
+      strokeChunkCount: chunks.length,
+      submittedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    try {
+      const batch = db.batch();
+      batch.set(db.collection(ROUND_COLLECTION).doc(canonicalKey), basePayload);
+      if (markerKey) {
+        batch.set(db.collection(ROUND_COLLECTION).doc(markerKey), {
+          dup: true, round, id: basePayload.id, name: basePayload.name, noId: basePayload.noId,
+          submittedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+      batch.set(db.collection(ROUND_SCORES_COLLECTION).doc(), { round, score: result.score });
+      await batch.commit();
+    } catch (e) {
+      console.error('[Remote] 회차 결과 저장 실패:', e);
+      return { saved: false, error: e, code: e && e.code };
+    }
+
+    const saved = await saveStrokeChunks(ROUND_COLLECTION, canonicalKey, chunks);
+    return {
+      saved: true,
+      strokesDropped: chunks.length > 0 && saved === 0,
+      strokesPartial: saved > 0 && saved < chunks.length
+    };
+  }
+
+  async function startRoundInProgress({ id, name, noId, round }) {
+    if (!enabled) return { ok: false };
+    const canonicalKey = roundCanonicalKey(round, id, name, noId);
+    try {
+      await db.collection(ROUND_IN_PROGRESS_COLLECTION).doc(canonicalKey).set({
+        round, name: name || null, id: (!noId && id) ? id : null, noId: !!noId,
+        startedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e };
+    }
+  }
+
+  async function clearRoundInProgress({ id, name, noId, round }) {
+    if (!enabled) return;
+    const canonicalKey = roundCanonicalKey(round, id, name, noId);
+    try { await db.collection(ROUND_IN_PROGRESS_COLLECTION).doc(canonicalKey).delete(); } catch (e) { /* 무시 */ }
+  }
+
+  /* 특정 회차만의 익명 점수 분포(등수/그래프용) */
+  async function fetchRoundScores(round) {
+    if (!enabled) return { ok: false, scores: [] };
+    try {
+      const snap = await db.collection(ROUND_SCORES_COLLECTION).where('round', '==', round).get();
+      const scores = snap.docs.map(d => d.data().score).filter(s => typeof s === 'number');
+      return { ok: true, scores };
+    } catch (e) {
+      return { ok: false, scores: [], error: e };
+    }
+  }
+
   init();
 
-  return { get enabled() { return enabled; }, checkDuplicate, saveResult, fetchScores, startExam, clearInProgress };
+  return {
+    get enabled() { return enabled; }, checkDuplicate, saveResult, fetchScores, startExam, clearInProgress,
+    checkRoundDuplicate, saveRoundResult, fetchRoundScores, startRoundInProgress, clearRoundInProgress
+  };
 })();

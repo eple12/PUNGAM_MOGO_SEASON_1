@@ -93,8 +93,8 @@
     </div>
 
     <p class="rlanding__desc" data-scroll-in>
-      한 명의 출제자가 다섯 문항씩 맡은 여섯 개의 회차(Day 01~06)로 나누어 응시합니다.<br>
-      회차마다 색이 다르며, 원하는 순서대로 골라 풀 수 있습니다. 인적사항은 처음 한 번만 작성합니다.
+      한 명의 출제자가 다섯 문항씩 맡은<br>여섯 개의 회차(Day 01~06)로 나누어 응시합니다.<br>
+      회차마다 색이 다르며, 원하는 순서대로 골라 풀 수 있습니다.<br>인적사항은 처음 한 번만 작성합니다.
     </p>
 
     <div class="rlanding__collection" data-scroll-in>
@@ -136,7 +136,7 @@
     </div>
 
     <button class="btn btn--primary btn--xl rlanding__cta" id="btnEnterRounds" type="button" data-scroll-in>
-      <span>인적사항 작성</span>
+      <span>입장</span>
     </button>
   </div>
 </section>
@@ -152,13 +152,13 @@
     <header class="rounds__head">
       <button class="btn btn--text" id="btnBackLanding" type="button">← 랜딩으로</button>
       <h2 class="rounds__title">회차 선택</h2>
-      <p class="rounds__hint">카드를 눌러 원하는 회차부터 시작하십시오. 인적사항은 최초 1회만 작성합니다.</p>
+      <p class="rounds__hint">카드를 눌러 원하는 회차부터 시작하십시오.</p>
     </header>
     <div class="rgrid" id="roundGrid"></div>
 
     <div class="rcards" id="roundsStats">
       <section class="rcard">
-        <h2 class="rcard__title">전체 점수 분포 <span class="rcard__title-sub">(회차 합산)</span></h2>
+        <h2 class="rcard__title">전체 점수 분포 <span class="rcard__title-sub" id="overallMyScore"></span></h2>
         <div class="scorechart-host" id="overallScoreChartHost"><p class="scorechart__empty">불러오는 중…</p></div>
       </section>
       <section class="rcard">

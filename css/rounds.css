@@ -114,10 +114,11 @@
 .rlink__svg{position:absolute;left:0;top:0}
 /* 잉크 리본 — 고정 두께의 stroke 대신, 진행 각도에 따라 폭이 변하는
    윤곽선을 직접 계산해 채운 도형(js/rounds.js)이라 만년필 특유의
-   굵기 변화가 생긴다. 진한 잉크색 리본 위에 더 가늘고 옅은 하이라이트
-   리본을 겹쳐 광택을 낸다. */
-.rlink__ink{fill:var(--ink);opacity:.88}
-.rlink__sheen{fill:color-mix(in srgb, var(--gold) 55%, #fff);opacity:.4}
+   굵기 변화가 생긴다. 순수 검정 100% 불투명 — 예전엔 반투명 검정 위에
+   금색 하이라이트 리본을 겹쳐 광택을 냈는데, 그 두 겹이 테두리가 있는
+   것처럼 보여서(가장자리에 옅은 색이 비침) 광택 리본은 껐다. */
+.rlink__ink{fill:#000;opacity:1}
+.rlink__sheen{display:none}
 /* transform-origin 을 닙 끝의 정확한 px 좌표로 고정해 둔다 — svg 의
    viewBox(-18 -38 36 48)를 렌더 크기(36×48)와 1:1 로 맞춰 뒀으므로, 로컬
    좌표 (0,0)(닙 끝)은 이 박스 안에서 항상 (27px, 57px) 지점이다.
@@ -157,9 +158,11 @@
   --c:var(--navy);
   display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;
   padding:16px 10px;border-radius:14px;
-  /* liquid glass — 반투명 배경 + 블러로 뒤 격자가 은은히 비쳐 보이게 하고,
-     위쪽 하이라이트(inset)로 유리 표면 느낌을 낸다. */
-  background:rgba(255,255,255,.5);
+  /* liquid glass — 반투명 배경 + 블러로 뒤 잉크 궤적·격자가 셀로판처럼
+     흐릿하게만 비쳐 보이게 하고, 위쪽 하이라이트(inset)로 유리 표면
+     느낌을 낸다. 불투명도를 높여 뒤가 또렷이 비치지 않고 뿌옇게만
+     보이게 한다. */
+  background:rgba(255,255,255,.93);
   backdrop-filter:blur(18px) saturate(180%);
   -webkit-backdrop-filter:blur(18px) saturate(180%);
   border:1px solid rgba(255,255,255,.65);
@@ -182,7 +185,7 @@
   display:flex;flex-direction:column;align-items:center;gap:8px;
   padding:14px 6px 12px;border-radius:14px;
   /* liquid glass */
-  background:rgba(255,255,255,.5);
+  background:rgba(255,255,255,.93);
   backdrop-filter:blur(18px) saturate(180%);
   -webkit-backdrop-filter:blur(18px) saturate(180%);
   border:1px solid rgba(255,255,255,.65);
@@ -199,7 +202,7 @@
 .rlbadge__ring svg{width:15px;height:15px}
 .rlbadge__day{font-size:12px;font-weight:800;letter-spacing:.02em;color:var(--c)}
 .rlbadge__state{min-height:13px;font-size:10px;font-weight:700;color:var(--ink-3);letter-spacing:.01em}
-.rlbadge.is-done{border-color:var(--c);background:color-mix(in srgb,var(--c) 12%,rgba(255,255,255,.5))}
+.rlbadge.is-done{border-color:var(--c);background:color-mix(in srgb,var(--c) 12%,rgba(255,255,255,.93))}
 .rlbadge.is-done .rlbadge__ring{background:var(--c);color:#fff}
 .rlbadge.is-doing .rlbadge__state{color:var(--c)}
 
@@ -403,7 +406,11 @@
   user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
 }
 .rePaper__inner{padding:30px 40px 10px;pointer-events:none}
-.reInk{position:absolute;left:0;top:0;touch-action:pan-y;cursor:crosshair}
+/* touch-action:none — .ink(튜토리얼·구버전 시험, css/exam.css)와 동일하게
+   맞춘다. pan-y 로 두면 펜/손가락으로 획을 긋는 도중에 브라우저가 그 드래그를
+   세로 스크롤 제스처로 가로채 버려(필기 중 화면이 잡혀 끌리는 문제), 필기가
+   끊기거나 페이지가 제멋대로 스크롤됐다. */
+.reInk{position:absolute;left:0;top:0;touch-action:none;cursor:crosshair}
 
 .rq__line{height:3px;border-radius:2px;background:var(--round-color,var(--navy));width:52px;margin-bottom:14px}
 

@@ -4,7 +4,7 @@
 
 const CONFIG = {
   /* 시험 정보 */
-  examTitle: '제1회 풍암 실수킬러 모의고사',
+  examTitle: 'pH S1',
   areaName: '수학 영역',
   areaSub: '대수',
   period: '2',                 // 교시

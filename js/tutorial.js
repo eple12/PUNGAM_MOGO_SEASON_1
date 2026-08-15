@@ -368,17 +368,16 @@ const Tutorial = (() => {
     U.el('#tutGuideBody').innerHTML = s.body;
     U.el('#tutBack').hidden = (step === 0);
     const nextBtn = U.el('#tutNextBtn');
-    nextBtn.textContent = (step === STEPS.length - 1) ? '완료 · 시험 시작' : '다음';
+    nextBtn.textContent = (step === STEPS.length - 1) ? '완료' : '다음';
     if (step === STEPS.length - 1) openOmr(false);
   }
 
-  /* 튜토리얼 마지막 버튼('완료 · 시험 시작')은 실제 200분 시험을 곧바로
-     시작시키는 되돌릴 수 없는 동작이라, 실수로 누르는 것을 막기 위해
-     한 번 더 확인을 받는다. */
+  /* 튜토리얼 마지막 버튼('완료')은 튜토리얼을 끝내고 회차 선택 화면으로
+     넘어가는 동작이라, 실수로 누르는 것을 막기 위해 한 번 더 확인을 받는다. */
   async function confirmStart() {
     const ok = await U.modal({
       title: '튜토리얼을 마칠까요?',
-      body: '<p>확인을 누르면 튜토리얼을 마치고 실제 문제로 넘어갑니다.</p>',
+      body: '<p>확인을 누르면 튜토리얼을 마치고 회차 선택 화면으로 넘어갑니다.</p>',
       buttons: [{ label: '아니오', value: false }, { label: '예, 마칩니다', value: true, kind: 'primary' }]
     });
     if (ok) finish();
@@ -409,8 +408,8 @@ const Tutorial = (() => {
   }
 
   /* 인적사항 작성을 마친 뒤 호출한다. 반환된 프로미스는 사용자가 마지막
-     단계에서 '완료 · 시험 시작'을 눌러야만 resolve 되며, 그 전까지는
-     실제 시험(타이머·문항)이 전혀 시작되지 않는다. */
+     단계에서 '완료'를 눌러야만 resolve 되며, 그 전까지는 회차 선택 화면
+     으로 넘어가지 않는다. */
   function run() {
     return new Promise(resolve => {
       finishResolve = resolve;

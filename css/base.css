@@ -175,7 +175,7 @@ b,strong{font-weight:700}
 }
 .scorechart__tick{
   flex:1 0 4px;min-width:4px;max-width:34px;
-  text-align:center;font-size:10.5px;color:var(--ink-3);white-space:nowrap;
+  text-align:center;font-size:9px;color:var(--ink-3);white-space:nowrap;
 }
 .scorechart__rank{margin:12px 0 0;font-size:14.5px;color:var(--ink-2);text-align:center}
 .scorechart__rank b{color:var(--navy);font-weight:800}

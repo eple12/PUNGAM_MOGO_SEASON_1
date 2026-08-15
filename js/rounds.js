@@ -201,7 +201,11 @@ const RoundApp = (() => {
   // index.html 의 만년필 svg 박스 안에서 닙 끝(로컬 좌표 0,0)이 위치하는
   // 고정 px 좌표 — css/rounds.css 의 .rlink__pen transform-origin 과 반드시
   // 같은 값을 써야 한다(펜 svg 를 바꾸면 이 두 곳도 같이 맞춰야 한다).
-  const PEN_TIP_X = 64, PEN_TIP_Y = 9;
+  const PEN_TIP_X = 27, PEN_TIP_Y = 57;
+  // 닙이 향하는 고정 각도 — CSS/SVG 의 양의 회전은 화면에서 시계 방향이라,
+  // 기본값(똑바로 아래, 6시 방향)에서 45°를 더하면 7시 30분 방향(왼쪽
+  // 아래)을 향하게 된다.
+  const PEN_TILT_DEG = 45;
 
   /* 웨이포인트를 catmull-rom 스플라인으로 이어 매끄러운(접선이 이어지는)
      3차 베지어 경로를 만든다 — 예전 버전은 구간마다 개별 C 커맨드를 손으로
@@ -248,33 +252,127 @@ const RoundApp = (() => {
     return d;
   }
 
-  /* 그냥 위아래로만 오가지 않고, 중간에 필기체 매듭처럼 한 바퀴 살짝 못
-     닫힌 고리(플로리시)를 한 번 그리며 내려가도록 웨이포인트를 자유롭게
-     배치한다. */
-  function buildInkPath(w, h) {
-    const cx = w * .5, amp = Math.min(w * .22, 130);
+  /* control point 를 최소한으로 줄이고, 그 대신 하나하나를 크게 벌려서
+     "점 많은 잔물결"이 아니라 "몇 개의 큰 곡선"으로 읽히게 한다. 점을
+     적게 쓸수록 smoothPath 의 카트멀롬 스플라인이 그 사이를 자연히
+     둥글게 채우므로 직선이 나올 일도 없다(세 점이 일직선일 때만 예외라
+     일부러 그런 배치를 피한다). 이벤트 카드는 살짝 스치는 정도는
+     허용하고, 출제진 옆은 오른쪽, 유의사항 옆은 왼쪽 가장자리를 타고
+     그 사이 좁은 여백은 한 번의 큰 곡선으로 건너간다. btnBox(입장 버튼의
+     body 기준 위치)가 있으면 마지막에 그 버튼을 한 바퀴 감싸는 큰 타원
+     고리로 마무리한다. */
+  function buildInkPath(w, h, btnBox, authorsBox, rulesBox, margins, eventBox) {
+    const cx = w * .5;
+    // 뷰포트에 본문(.rlbody) 바깥 여백이 남아 있으면(넓은 화면) 그 여백
+    // 쪽으로 가장자리를 밀어내 — 카드와는 절대 안 겹치면서(0..w 밖이라) —
+    // 훨씬 여유 있게 휠 수 있는 캔버스를 확보한다.
+    const edgeR = margins && margins.right > 40 ? w + Math.min(margins.right * .55, 90) : w - 14;
+    const edgeL = margins && margins.left > 40 ? -Math.min(margins.left * .55, 90) : 14;
+    const rightRoom = Math.max(0, edgeR - w), leftRoom = Math.max(0, -edgeL);
+    // 최소 볼록량을 보장한다 — 여백이 없는 좁은 화면이라도 0이 되면
+    // 세 점이 일직선(카드 옆을 그냥 수직으로 타는 직선)이 되어 버린다.
+    const bowAmp = Math.max(14, Math.min(rightRoom, leftRoom, 90) * .8);
+
     const pts = [{ x: cx, y: 0 }];
 
-    const before = Math.max(1, Math.round(h * .42 / 260));
-    for (let i = 1; i <= before; i++) {
-      pts.push({ x: cx + (i % 2 ? amp : -amp), y: (h * .42) * (i / before) });
-    }
-
-    const loopCx = cx - amp * .25, loopCy = h * .5;
-    const loopRx = amp * .85, loopRy = loopRx * 1.15;
-    const loopN = 7;
+    // 맨 위 — 이벤트 카드 자리 위아래로 큰 고리 하나(점 5개)만 그린다.
+    // 살짝 스치는 건 괜찮으므로 카드를 딱 피해 다니지 않고 그 옆을
+    // 크게 도는 정도로만 잡는다.
+    const loopCy = eventBox ? (eventBox.top + eventBox.bottom) / 2 : h * .16;
+    const loopCx = cx - Math.min(w * .16, 90);
+    const loopR = Math.min(w * .24, 140);
+    const loopN = 5;
     for (let i = 0; i < loopN; i++) {
-      const a = -Math.PI / 2 + (i / loopN) * Math.PI * 2 * (6.2 / 7);
-      pts.push({ x: loopCx + Math.cos(a) * loopRx, y: loopCy + Math.sin(a) * loopRy });
+      const a = -Math.PI / 2 + (i / loopN) * Math.PI * 2 * (5.3 / 5);
+      pts.push({ x: loopCx + Math.cos(a) * loopR, y: loopCy + Math.sin(a) * loopR * 1.2 });
     }
 
-    const after = Math.max(1, Math.round(h * .5 / 260));
-    for (let i = 1; i <= after; i++) {
-      pts.push({ x: cx + (i % 2 ? -amp : amp), y: Math.min(h * .58 + (h * .42) * (i / after), h) });
+    // 출제진 옆(오른쪽) — 볼록점 하나로 크게 휜다.
+    const authorsTop = authorsBox ? authorsBox.top : loopCy + 160;
+    const authorsBottom = authorsBox ? authorsBox.bottom : authorsTop + 260;
+    pts.push({ x: edgeR, y: authorsTop });
+    pts.push({ x: edgeR + bowAmp, y: (authorsTop + authorsBottom) / 2 });
+    pts.push({ x: edgeR, y: authorsBottom });
+
+    // 출제진과 유의사항 사이 좁은 여백 — 큰 곡선 하나로 건너간다. 정확히
+    // 가운데(직전·직후 점을 잇는 직선의 중점)에 놓으면 세 점이 일직선이
+    // 되어 버리므로, 한쪽으로 확실히 치우치게(볼록하게) 놓는다.
+    const rulesTop = rulesBox ? rulesBox.top : authorsBottom + 80;
+    pts.push({ x: (edgeR + edgeL) / 2 + bowAmp, y: (authorsBottom + rulesTop) / 2 });
+
+    // 유의사항 옆(왼쪽) — 볼록점 하나로 크게 휜다.
+    const segEndY = btnBox ? Math.max(rulesTop + 200, btnBox.top - 34) : h * .96;
+    pts.push({ x: edgeL, y: rulesTop });
+    pts.push({ x: edgeL + bowAmp, y: (rulesTop + segEndY) / 2 });
+    pts.push({ x: edgeL, y: segEndY });
+
+    if (btnBox) {
+      // 입장 버튼을 한 바퀴 감싸는 큰 타원 고리 — 버튼 위쪽 중앙에서
+      // 시작해 시계 방향으로 한 바퀴 돈 뒤 버튼 아래로 살짝 빠져나온다.
+      const bcx = btnBox.left + btnBox.width / 2;
+      const bcy = btnBox.top + btnBox.height / 2;
+      const rx = btnBox.width / 2 + 26, ry = btnBox.height / 2 + 20;
+      pts.push({ x: bcx, y: bcy - ry });
+      const loopN2 = 8;
+      for (let i = 1; i <= loopN2; i++) {
+        const a = -Math.PI / 2 + (i / loopN2) * Math.PI * 2;
+        pts.push({ x: bcx + Math.cos(a) * rx, y: bcy + Math.sin(a) * ry });
+      }
+      pts.push({ x: bcx, y: btnBox.bottom + 22 });
+    } else {
+      pts.push({ x: cx, y: h });
     }
-    pts.push({ x: cx, y: h });
 
     return smoothPath(pts);
+  }
+
+  /* 곡선을 일정 간격(step, px)으로 샘플링해 각 지점의 좌표·접선각을 얻는다
+     — 리본 폭 계산(만년필 굵기 변화)에 쓴다. */
+  function sampleCurve(refPath, step) {
+    const len = refPath.getTotalLength();
+    const n = Math.max(2, Math.round(len / step));
+    const pts = [];
+    for (let i = 0; i <= n; i++) {
+      const l = (i / n) * len;
+      const p = refPath.getPointAtLength(l);
+      const p2 = refPath.getPointAtLength(Math.min(len, l + .75));
+      pts.push({ x: p.x, y: p.y, ang: Math.atan2(p2.y - p.y, p2.x - p.x), t: i / n });
+    }
+    return pts;
+  }
+
+  /* 리본의 맨 처음·맨 끝 몇 %는 폭을 0까지 서서히 줄여, 만년필로 획을
+     떼고 붙이는 순간처럼 자연스럽게 얇아지며 시작/끝나게 한다 — 그냥
+     고정 폭으로 시작/끝나면 화면 경계에서 뚝 잘린 것처럼 보인다. */
+  const TAPER_FRAC = .035;
+  function taperFactor(t) {
+    if (t < TAPER_FRAC) return t / TAPER_FRAC;
+    if (t > 1 - TAPER_FRAC) return (1 - t) / TAPER_FRAC;
+    return 1;
+  }
+
+  /* 만년필 닙이 놓인 고정 각도 — 실제 캘리그라피 촉처럼, 진행 방향이 이
+     각도와 수직에 가까울수록 굵고 나란할수록 가늘어진다. */
+  const INK_NIB_ANGLE = 50 * Math.PI / 180;
+  function inkWidthAt(ang, minW, maxW) {
+    return minW + (maxW - minW) * Math.abs(Math.sin(ang - INK_NIB_ANGLE));
+  }
+
+  /* 표준 SVG stroke-width 는 경로 전체에서 값이 고정이라 만년필 특유의
+     굵기 변화를 표현할 수 없다 — 대신 각 샘플점에서 진행 방향에 수직으로
+     좌우 윤곽점을 계산해, 그 윤곽을 그대로 이어 붙인 도형(리본)을 채운다. */
+  function ribbonPath(pts, minW, maxW) {
+    const left = [], right = [];
+    pts.forEach(p => {
+      const w = inkWidthAt(p.ang, minW, maxW) / 2 * taperFactor(p.t);
+      const nx = Math.cos(p.ang + Math.PI / 2), ny = Math.sin(p.ang + Math.PI / 2);
+      left.push({ x: p.x + nx * w, y: p.y + ny * w });
+      right.push({ x: p.x - nx * w, y: p.y - ny * w });
+    });
+    let d = 'M ' + left[0].x.toFixed(1) + ' ' + left[0].y.toFixed(1);
+    for (let i = 1; i < left.length; i++) d += ' L ' + left[i].x.toFixed(1) + ' ' + left[i].y.toFixed(1);
+    for (let i = right.length - 1; i >= 0; i--) d += ' L ' + right[i].x.toFixed(1) + ' ' + right[i].y.toFixed(1);
+    return d + ' Z';
   }
 
   function setupInkTrail() {
@@ -282,19 +380,52 @@ const RoundApp = (() => {
     const wrap = U.el('#rlInk'), svg = U.el('#rlInkSvg'), pen = U.el('#rlInkPen'), body = U.el('.rlbody');
     if (!wrap || !svg || !pen || !body) return;
 
-    let inkPath = null, rafPending = false;
+    let refPath = null, curveLen = 0, rafPending = false;
+    let fullPts = [], inkEl = null, sheenEl = null;
 
     function rebuild() {
       const w = body.clientWidth, h = body.scrollHeight;
       if (!w || !h) return;
-      svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
-      svg.setAttribute('width', w);
+
+      // .rlbody 는 max-width:640 이라 그 바깥 좌우로 뷰포트 여백이 남는
+      // 화면에서는 캔버스가 딱 본문 폭(w)에 갇혀 있었다 — 그래서 카드
+      // 옆을 지나갈 때 크게 휠 자리가 없어 억지로 좁게 붙어야 했다.
+      // 실제로 남는 뷰포트 여백만큼 캔버스를 좌우로 넓혀서, 카드를 절대
+      // 가리지 않으면서도(본문 폭 0..w 밖이니 카드와 절대 안 겹친다) 훨씬
+      // 크고 부드럽게 휠 수 있게 한다. 좌표계는 그대로 body 기준(0..w)을
+      // 유지하고, svg 자체만 그 바깥까지 넓게 그린다.
+      const bodyRect = body.getBoundingClientRect();
+      const vw = document.documentElement.clientWidth || window.innerWidth || w;
+      const marginL = Math.max(0, bodyRect.left);
+      const marginR = Math.max(0, vw - bodyRect.right);
+      svg.style.left = (-marginL) + 'px';
+      svg.setAttribute('viewBox', (-marginL) + ' 0 ' + (w + marginL + marginR) + ' ' + h);
+      svg.setAttribute('width', w + marginL + marginR);
       svg.setAttribute('height', h);
-      svg.innerHTML = '<path class="rlink__path" d="' + buildInkPath(w, h) + '"></path>';
-      inkPath = svg.querySelector('.rlink__path');
-      const len = inkPath.getTotalLength();
-      inkPath.style.strokeDasharray = String(len);
-      inkPath.style.strokeDashoffset = String(len);
+
+      // 입장 버튼·출제진·유의사항 섹션의 body 기준 위치 — 잉크 곡선이
+      // 이 지점들을 피해(또는 감싸며) 지나가게 하려면 페이지 스크롤
+      // 위치와 무관한(문서 내부) 좌표가 필요하다.
+      function localBox(el) {
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        if (!r.width || !r.height) return null; // hidden(display:none) 요소는 없는 것으로 취급
+        return { left: r.left - bodyRect.left, top: r.top - bodyRect.top, width: r.width, height: r.height, bottom: (r.top - bodyRect.top) + r.height };
+      }
+      const btnBox = localBox(document.getElementById('btnEnterRounds'));
+      const eventBox = localBox(document.getElementById('rlEvent'));
+      const authorsBox = localBox(document.querySelector('.rlanding__authorsec'));
+      const rulesBox = localBox(document.querySelector('.rlanding__rulesec'));
+      const margins = { left: marginL, right: marginR };
+
+      // 기준 경로(화면엔 안 그림) — 리본·펜 위치 계산은 전부 이걸로 한다.
+      svg.innerHTML = '<path id="rlinkRef" d="' + buildInkPath(w, h, btnBox, authorsBox, rulesBox, margins, eventBox) + '" fill="none" stroke="none"></path>' +
+        '<path class="rlink__ink"></path><path class="rlink__sheen"></path>';
+      refPath = svg.querySelector('#rlinkRef');
+      curveLen = refPath.getTotalLength();
+      fullPts = sampleCurve(refPath, 6);
+      inkEl = svg.querySelector('.rlink__ink');
+      sheenEl = svg.querySelector('.rlink__sheen');
       update();
     }
 
@@ -306,22 +437,27 @@ const RoundApp = (() => {
        대비 얼마나 왔는가"로 계산해, 페이지를 끝까지 내리면 정확히 1이
        되도록 한다. */
     function update() {
-      if (!inkPath) return;
-      const len = inkPath.getTotalLength();
+      if (!refPath || !inkEl) return;
       const rect = body.getBoundingClientRect();
       const bodyTopAbs = window.scrollY + rect.top;
       const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
       const start = Math.max(0, bodyTopAbs - window.innerHeight * 0.5);
       const progress = Math.min(1, Math.max(0, (window.scrollY - start) / Math.max(1, maxScroll - start)));
-      const at = len * progress;
-      inkPath.style.strokeDashoffset = String(len - at);
-      const p1 = inkPath.getPointAtLength(at);
-      const p2 = inkPath.getPointAtLength(Math.max(0, at - 1));
-      const angle = Math.atan2(p1.y - p2.y, p1.x - p2.x) * 180 / Math.PI;
+      const p1 = refPath.getPointAtLength(curveLen * progress);
+
+      // 리본을 사각형 클립이 아니라 "지금까지 지나온 경로 순서" 그대로
+      // 잘라서 그린다 — 고리(플로리시)처럼 y 좌표가 오르내리는 구간도
+      // 실제로 펜이 지나간 순서대로만 드러난다(위→아래 사각 와이프 X).
+      const idx = Math.max(1, Math.round(progress * (fullPts.length - 1)));
+      const shown = fullPts.slice(0, idx + 1);
+      inkEl.setAttribute('d', ribbonPath(shown, 1, 6.5));
+      sheenEl.setAttribute('d', ribbonPath(shown, .5, 2.6));
       /* transform-origin(css/rounds.css)이 펜 박스 안에서 닙 끝의 고정
-         px 좌표(64,9)에 있으므로, translate 는 그만큼 빼서 보정해야
-         회전축이 아니라 "닙 끝 자체"가 정확히 p1 에 놓인다. */
-      pen.style.transform = 'translate(' + (p1.x - PEN_TIP_X) + 'px,' + (p1.y - PEN_TIP_Y) + 'px) rotate(' + angle + 'deg)';
+         px 좌표(18,38)에 있으므로, translate 는 그만큼 빼서 보정해야
+         닙 끝 자체가 정확히 p1 에 놓인다. rotate 는 transform-origin(닙
+         끝) 을 축으로 돌므로 translate 보정값에는 영향을 주지 않는다 —
+         진행 방향을 따라가지 않는 고정 각도(PEN_TILT_DEG)만 적용한다. */
+      pen.style.transform = 'translate(' + (p1.x - PEN_TIP_X) + 'px,' + (p1.y - PEN_TIP_Y) + 'px) rotate(' + PEN_TILT_DEG + 'deg)';
     }
 
     function onScroll() {
@@ -502,6 +638,41 @@ const RoundApp = (() => {
     tickRoundsList();
     stopRoundsTicker();
     roundsTicker = setInterval(tickRoundsList, 1000);
+    loadRoundsStats();
+  }
+
+  /* 회차 선택 화면 하단 — 전체 응시자의 회차 합산 점수 분포와 학년별
+     1등 점수(학번 첫 자리 1/2/3). 매번 새로 불러온다(회차 화면에 올 때마다
+     최신 집계를 보여준다). */
+  function loadRoundsStats() {
+    const chartHost = U.el('#overallScoreChartHost');
+    const gradeHost = U.el('#gradeTopHost');
+    if (!Remote.enabled) {
+      chartHost.innerHTML = '<p class="scorechart__empty">순위 정보를 사용할 수 없습니다.</p>';
+      gradeHost.innerHTML = '<p class="scorechart__empty">순위 정보를 사용할 수 없습니다.</p>';
+      return;
+    }
+    // 지금까지 제출한 회차들의 점수를 더한, 내(이 브라우저) 합산 점수 —
+    // 하나도 제출한 회차가 없으면 강조 없이(null) 그냥 분포만 보여준다.
+    const submitted = ROUND_DEFS.filter(d => S.roundSubmitted && S.roundSubmitted[d.key] && S.roundResults && S.roundResults[d.key]);
+    const myTotal = submitted.length ? submitted.reduce((sum, d) => sum + S.roundResults[d.key].score, 0) : null;
+
+    Remote.fetchRoundLeaderboard().then(r => {
+      if (!r.ok) {
+        chartHost.innerHTML = '<p class="scorechart__empty">불러오지 못했습니다.</p>';
+        gradeHost.innerHTML = '<p class="scorechart__empty">불러오지 못했습니다.</p>';
+        return;
+      }
+      chartHost.innerHTML = U.scoreChart(r.overallScores, myTotal, CONFIG.totalScore);
+      gradeHost.innerHTML = [1, 2, 3].map(g => {
+        const score = r.gradeTop[g];
+        return '<div class="gradetop__row">' +
+          '<span class="gradetop__grade">' + g + '학년</span>' +
+          '<span class="gradetop__score' + (score == null ? ' is-empty' : '') + '">' +
+          (score == null ? '아직 없음' : score + '점') +
+          '</span></div>';
+      }).join('');
+    });
   }
 
   /* ---------------- 인적사항(최초 1회) ---------------- */
@@ -522,6 +693,28 @@ const RoundApp = (() => {
     screen('screenIdentity');
   }
 
+  /* 인적사항 작성을 마친 직후, 감독관 날인란으로 부드럽게 스크롤해
+     도장이 찍히는 모습을 보여 준다. 실제 도장(is-signed)은 시험이 정말
+     시작된 뒤에만 찍히므로, 여기서는 별도의 is-signing 클래스로만 같은
+     애니메이션을 재생한다(상태는 아무것도 바꾸지 않는다). 예전 단일
+     시험판(js/app.js 의 stampPreview)에 있던 걸 회차판으로 그대로 옮겼다. */
+  function stampPreview() {
+    return new Promise(resolve => {
+      const supBox = sheet && sheet.root && sheet.root.querySelector('.obox--sup');
+      if (!supBox) { resolve(); return; }
+      supBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => {
+        supBox.classList.add('is-stampfocus');
+        sheet.root.classList.add('is-signing');
+        setTimeout(() => {
+          supBox.classList.remove('is-stampfocus');
+          sheet.root.classList.remove('is-signing');
+          resolve();
+        }, 2500);
+      }, 550);
+    });
+  }
+
   async function completeIdentity() {
     const name = (S.student.name || '').trim();
     const noId = !!S.student.noId;
@@ -533,6 +726,8 @@ const RoundApp = (() => {
     const next = S.pendingRound;
     S.pendingRound = null;
     Store.save(true);
+
+    await stampPreview();
 
     if (!S.tutorialDone) {
       await Tutorial.run();
@@ -1079,14 +1274,27 @@ const RoundApp = (() => {
   /* ---------------- 바인딩 ---------------- */
   function bind() {
     U.el('#btnEnterRounds').addEventListener('click', () => {
-      S.phase = 'rounds';
-      Store.save(true);
-      showRoundsScreen();
+      // 인적사항은 최초 1회만 — 이미 작성돼 있으면(나갔다 다시 들어와도)
+      // 다시 적게 하지 않고 곧장 회차 선택으로 보낸다.
+      if (identityDone()) {
+        S.phase = 'rounds';
+        Store.save(true);
+        showRoundsScreen();
+      } else {
+        goIdentity(null);
+      }
     });
 
     U.el('#rlScrollCue').addEventListener('click', () => {
-      U.el('.rlbody').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
     });
+
+    const roundsCue = U.el('#roundsScrollCue');
+    if (roundsCue) {
+      roundsCue.addEventListener('click', () => {
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+      });
+    }
 
     U.el('#btnBackLanding').addEventListener('click', () => {
       stopRoundsTicker();
@@ -1106,8 +1314,10 @@ const RoundApp = (() => {
 
     U.el('#btnBackIntro').addEventListener('click', () => {
       S.pendingRound = null;
+      S.phase = 'intro';
       Store.save(true);
-      showRoundsScreen();
+      renderLandingBadges();
+      screen('screenIntro');
     });
     U.el('#btnBeginExam').addEventListener('click', completeIdentity);
 

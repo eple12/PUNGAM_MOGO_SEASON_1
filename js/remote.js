@@ -439,10 +439,48 @@ const Remote = (() => {
     }
   }
 
+  /* 회차 선택 화면 하단용 — 전체 응시자의 "회차 점수 합"(각자 지금까지
+     제출한 회차들의 점수를 더한 값) 분포와, 학번 첫 자리(학년)별 최고점.
+     roundScores 는 익명(점수만)이라 학생별로 합산할 수 없으므로,
+     roundSubmissions 를 전부 읽어 학생별(canonicalKey 에서 회차를 뺀
+     id_/name_ 부분)로 묶는다 — saveRoundResult 가 학번이 있을 때 이름
+     쪽에도 남겨 두는 dup 마커 문서(data.dup===true, score 없음)는
+     제외한다. */
+  async function fetchRoundLeaderboard() {
+    if (!enabled) return { ok: false, overallScores: [], gradeTop: {} };
+    try {
+      const snap = await db.collection(ROUND_COLLECTION).get();
+      const byStudent = new Map(); // key -> { total, grade }
+      snap.docs.forEach(d => {
+        const data = d.data();
+        if (data.dup || typeof data.score !== 'number') return;
+        const key = (data.id ? idDocKey(data.id) : nameDocKey(data.name || ''));
+        let entry = byStudent.get(key);
+        if (!entry) {
+          const grade = (data.id && /^[123]/.test(data.id)) ? data.id.charAt(0) : null;
+          entry = { total: 0, grade };
+          byStudent.set(key, entry);
+        }
+        entry.total += data.score;
+      });
+      const overallScores = [];
+      const gradeTop = { 1: null, 2: null, 3: null };
+      byStudent.forEach(entry => {
+        overallScores.push(entry.total);
+        if (entry.grade && (gradeTop[entry.grade] == null || entry.total > gradeTop[entry.grade])) {
+          gradeTop[entry.grade] = entry.total;
+        }
+      });
+      return { ok: true, overallScores, gradeTop };
+    } catch (e) {
+      return { ok: false, overallScores: [], gradeTop: {}, error: e };
+    }
+  }
+
   init();
 
   return {
     get enabled() { return enabled; }, checkDuplicate, saveResult, fetchScores, startExam, clearInProgress,
-    checkRoundDuplicate, saveRoundResult, fetchRoundScores, startRoundInProgress, clearRoundInProgress
+    checkRoundDuplicate, saveRoundResult, fetchRoundScores, fetchRoundLeaderboard, startRoundInProgress, clearRoundInProgress
   };
 })();

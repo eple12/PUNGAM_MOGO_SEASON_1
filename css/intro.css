@@ -97,6 +97,25 @@
   background:linear-gradient(180deg,#EEF6FD,#E4F0FB);
   border:1px solid #AECBEA;
 }
+
+/* 랜딩(#screenIntro)의 카드류만 liquid glass 처리 — 반투명 배경 + 블러로
+   뒤에 깔린 격자 배경이 은은히 비쳐 보이게 하고, 위쪽 하이라이트(inset)로
+   유리 표면 느낌을 준다. 다른 화면에서 재사용될 수 있는 .card 자체는
+   그대로 두고 #screenIntro 로 범위를 좁힌다. */
+#screenIntro .card{
+  background:rgba(255,255,255,.5);
+  backdrop-filter:blur(20px) saturate(180%);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);
+  border:1px solid rgba(255,255,255,.65);
+  box-shadow:0 10px 30px rgba(16,24,40,.1), inset 0 1px 0 rgba(255,255,255,.6);
+}
+#screenIntro .card--event{
+  background:linear-gradient(180deg, rgba(238,246,253,.55), rgba(228,240,251,.45));
+  backdrop-filter:blur(20px) saturate(180%);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);
+  border:1px solid rgba(174,203,234,.6);
+  box-shadow:0 10px 30px rgba(16,24,40,.08), inset 0 1px 0 rgba(255,255,255,.5);
+}
 .event__period{
   margin:14px 0 0;font-size:13.5px;font-weight:700;letter-spacing:-.01em;color:var(--navy-2);
 }
@@ -109,7 +128,8 @@
 .event__list li b{font-weight:800;color:var(--navy-2)}
 .event__extra{
   margin:14px 0 0;padding:12px 14px;border-radius:8px;
-  background:rgba(255,255,255,.6);border:1px solid #AECBEA;
+  background:rgba(255,255,255,.55);border:1px solid #AECBEA;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
   font-size:13.5px;line-height:1.7;font-weight:700;color:var(--navy-2);
 }
 

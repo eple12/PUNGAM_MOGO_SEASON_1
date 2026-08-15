@@ -11,11 +11,18 @@
    히어로만이 아니라 그 아래 스크롤되는 .rlbody 끝까지 별도 계산 없이
    똑같은 격자가 이어진다(색은 color-mix 로 옅게 섞어 은은하게 깔아 둔다 —
    전체가 다 보이는 배경이라 본문 텍스트를 방해하지 않을 정도로만). */
+/* z-index:0 을 명시해 #screenIntro 자신이 스태킹 컨텍스트를 만들게 한다
+   (position:relative 만으로는 z-index:auto 라 컨텍스트가 안 생겨, 아래
+   .rlink 의 z-index:-1 이 이 요소의 배경(모눈종이)보다도 더 뒤로 밀려나
+   버렸었다 — 스펙상 "스태킹 컨텍스트 루트 자신의 배경"이 그 자식들 중
+   음수 z-index 요소보다도 먼저 그려지는 건 이 요소가 실제로 컨텍스트를
+   형성할 때만 보장된다). 이제 그려지는 순서는 항상: 모눈종이(배경) →
+   잉크(z-index:-1) → 본문 카드들(z-index:1). */
 #screenIntro.is-active{
-  display:block;position:relative;
+  display:block;position:relative;z-index:0;
   background-image:
-    linear-gradient(color-mix(in srgb, var(--line) 70%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--line) 70%, transparent) 1px, transparent 1px);
+    linear-gradient(color-mix(in srgb, var(--line-2) 95%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--line-2) 95%, transparent) 1px, transparent 1px);
   background-size:44px 44px;
 }
 
@@ -38,7 +45,7 @@
   background-size:44px 44px;
   -webkit-mask-image:radial-gradient(ellipse 55% 50% at 50% 38%, #000 0%, transparent 75%);
   mask-image:radial-gradient(ellipse 55% 50% at 50% 38%, #000 0%, transparent 75%);
-  opacity:.75;
+  opacity:.92;
 }
 
 /* 메달(엠블럼) — 첫 화면에서 가장 먼저 시선을 붙잡는 3D 오브젝트. perspective
@@ -50,7 +57,7 @@
   perspective:1000px;
 }
 .rlmedal{
-  position:relative;width:104px;height:104px;border-radius:50%;
+  position:relative;width:132px;height:132px;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
   background:linear-gradient(155deg,#fff,var(--navy-soft));
   box-shadow:0 18px 40px rgba(16,48,79,.2), inset 0 0 0 1px rgba(255,255,255,.7);
@@ -59,10 +66,10 @@
   position:absolute;inset:-8px;border-radius:50%;
   border:2px solid var(--gold);opacity:.6;
 }
-.rlmedal__logo{width:56px;height:56px;object-fit:contain;position:relative;z-index:1}
+.rlmedal__logo{width:78px;height:78px;object-fit:contain;position:relative;z-index:1}
 /* 메달이 자리 잡는 순간 한 번 퍼지는 충격파 링(js/rounds.js 가 opacity·scale 을 애니메이션) */
 .rlmedal__pulse{
-  position:absolute;width:104px;height:104px;border-radius:50%;
+  position:absolute;width:132px;height:132px;border-radius:50%;
   border:2px solid var(--gold);opacity:0;pointer-events:none;
 }
 
@@ -88,6 +95,9 @@
   animation:rlScrollCue 1.8s ease-in-out infinite;
 }
 .rlscrollcue:hover{color:var(--navy);border-color:var(--navy)}
+/* 회차 선택 화면용 — 히어로 안에 갇혀 스크롤하면 같이 사라지는 랜딩의
+   것과 달리, 뷰포트 하단에 고정해 스크롤해도 계속 보이게 한다. */
+.rlscrollcue--fixed{position:fixed}
 @keyframes rlScrollCue{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,6px)}}
 @media (prefers-reduced-motion:reduce){.rlscrollcue{animation:none}}
 
@@ -102,28 +112,28 @@
    이면 js/rounds.js 가 svg 내용을 아예 채우지 않아 빈 채로 남는다. */
 .rlink{position:absolute;inset:0;z-index:-1;pointer-events:none;overflow:visible}
 .rlink__svg{position:absolute;left:0;top:0}
-.rlink__path{fill:none;stroke:var(--gold);stroke-width:3.5;stroke-linecap:round;opacity:.65}
+/* 잉크 리본 — 고정 두께의 stroke 대신, 진행 각도에 따라 폭이 변하는
+   윤곽선을 직접 계산해 채운 도형(js/rounds.js)이라 만년필 특유의
+   굵기 변화가 생긴다. 진한 잉크색 리본 위에 더 가늘고 옅은 하이라이트
+   리본을 겹쳐 광택을 낸다. */
+.rlink__ink{fill:var(--ink);opacity:.88}
+.rlink__sheen{fill:color-mix(in srgb, var(--gold) 55%, #fff);opacity:.4}
 /* transform-origin 을 닙 끝의 정확한 px 좌표로 고정해 둔다 — svg 의
-   viewBox(-64 -9 68 18)를 렌더 크기(66×18)와 1:1 로 맞춰 뒀으므로, 로컬
-   좌표 (0,0)(닙 끝)은 이 박스 안에서 항상 (64px, 9px) 지점이다. js/rounds.js
-   는 이 상수를 그대로 알고 있다는 전제로 translate 값을 그만큼 보정해
-   회전축이 실제로 닙 끝에 오도록 만든다. */
-.rlink__pen{position:absolute;left:0;top:0;transform-origin:64px 9px;will-change:transform}
-.rlpen__barrel{fill:url(#rlpenBarrelGrad)}
-.rlpen__band{fill:var(--gold)}
-.rlpen__grip{fill:color-mix(in srgb, var(--gold) 88%, var(--navy-2))}
-.rlpen__nib{fill:url(#rlpenNibGrad)}
-.rlpen__slit{fill:none;stroke:var(--navy-2);stroke-width:.55}
-.rlpen__hole{fill:var(--navy-2)}
-/* 그라디언트 stop 은 presentation attribute(stop-color="var(...)")로 바로
-   쓰면 오래된 브라우저 호환이 불안정해, 여느 색과 마찬가지로 클래스로
-   CSS 에서 지정한다. */
-.rlpen__stop-edge{stop-color:var(--navy-2)}
-.rlpen__stop-mid{stop-color:var(--navy)}
-.rlpen__stop-sheen{stop-color:color-mix(in srgb, var(--navy) 45%, white)}
-.rlpen__stop-gold{stop-color:var(--gold)}
-.rlpen__stop-goldlight{stop-color:color-mix(in srgb, var(--gold) 55%, white)}
-.rlpen__stop-golddark{stop-color:color-mix(in srgb, var(--gold) 70%, black)}
+   viewBox(-18 -38 36 48)를 렌더 크기(36×48)와 1:1 로 맞춰 뒀으므로, 로컬
+   좌표 (0,0)(닙 끝)은 이 박스 안에서 항상 (27px, 57px) 지점이다.
+   js/rounds.js 는 이 상수를 그대로 알고 translate 값을 그만큼 보정해
+   기준점이 실제로 닙 끝에 오도록 만든다 — 방향은 고정한 채(진행 방향으로
+   회전시키지 않는다) 살짝 기울여만 둔다. */
+.rlink__pen{position:absolute;left:0;top:0;transform-origin:27px 57px;will-change:transform}
+/* 부드러운 그라디언트 대신 각진(직선) 두 면으로 나눠 한쪽은 밝게, 한쪽은
+   어둡게 채워 은색 금속 느낌의 입체감을 낸다. */
+.rlpen__facet-light{fill:color-mix(in srgb, var(--line-2) 55%, #fff)}
+.rlpen__facet-dark{fill:var(--ink-3)}
+.rlpen__slit{fill:none;stroke:#000;stroke-width:1}
+.rlpen__hole{fill:#000}
+/* 만년필 오브젝트는 잠깐 빼고 잉크 자국만 남긴다(js/rounds.js 의 위치 계산
+   로직은 그대로 두고 시각적으로만 숨김 — 나중에 다시 켤 수 있게). */
+.rlink__pen{display:none}
 
 /* 회차 컬렉션·이벤트·출제진·유의사항 — 모두 같은 형태의 섹션 라벨을 쓴다 */
 .rlanding__section-head{
@@ -146,7 +156,14 @@
 .rlauthor{
   --c:var(--navy);
   display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;
-  padding:16px 10px;border-radius:14px;background:var(--paper);border:1px solid var(--line);
+  padding:16px 10px;border-radius:14px;
+  /* liquid glass — 반투명 배경 + 블러로 뒤 격자가 은은히 비쳐 보이게 하고,
+     위쪽 하이라이트(inset)로 유리 표면 느낌을 낸다. */
+  background:rgba(255,255,255,.5);
+  backdrop-filter:blur(18px) saturate(180%);
+  -webkit-backdrop-filter:blur(18px) saturate(180%);
+  border:1px solid rgba(255,255,255,.65);
+  box-shadow:0 6px 22px rgba(16,24,40,.08), inset 0 1px 0 rgba(255,255,255,.6);
 }
 .rlauthor__badge{
   width:36px;height:36px;border-radius:50%;flex:none;
@@ -164,10 +181,15 @@
   --c:var(--navy);
   display:flex;flex-direction:column;align-items:center;gap:8px;
   padding:14px 6px 12px;border-radius:14px;
-  background:var(--paper);border:1px solid var(--line);
+  /* liquid glass */
+  background:rgba(255,255,255,.5);
+  backdrop-filter:blur(18px) saturate(180%);
+  -webkit-backdrop-filter:blur(18px) saturate(180%);
+  border:1px solid rgba(255,255,255,.65);
+  box-shadow:0 6px 22px rgba(16,24,40,.08), inset 0 1px 0 rgba(255,255,255,.6);
   transition:transform .18s cubic-bezier(.22,.8,.32,1),box-shadow .18s ease,border-color .18s ease;
 }
-.rlbadge:hover{transform:translateY(-3px);box-shadow:0 10px 22px rgba(16,24,40,.1);border-color:var(--c)}
+.rlbadge:hover{transform:translateY(-3px);box-shadow:0 10px 26px rgba(16,24,40,.12), inset 0 1px 0 rgba(255,255,255,.6);border-color:var(--c)}
 .rlbadge__ring{
   width:32px;height:32px;border-radius:50%;flex:none;
   display:flex;align-items:center;justify-content:center;
@@ -177,7 +199,7 @@
 .rlbadge__ring svg{width:15px;height:15px}
 .rlbadge__day{font-size:12px;font-weight:800;letter-spacing:.02em;color:var(--c)}
 .rlbadge__state{min-height:13px;font-size:10px;font-weight:700;color:var(--ink-3);letter-spacing:.01em}
-.rlbadge.is-done{border-color:var(--c);background:color-mix(in srgb,var(--c) 7%,#fff)}
+.rlbadge.is-done{border-color:var(--c);background:color-mix(in srgb,var(--c) 12%,rgba(255,255,255,.5))}
 .rlbadge.is-done .rlbadge__ring{background:var(--c);color:#fff}
 .rlbadge.is-doing .rlbadge__state{color:var(--c)}
 
@@ -329,6 +351,23 @@
 @media (max-width:560px){
   .rselcard{flex:0 0 62vw;aspect-ratio:.68;margin-left:-17vw}
   .rselcard__watermark__l1,.rselcard__watermark__l2{font-size:27vw}
+}
+
+/* 회차 선택 카드 아래 — 전체 응시자 통계(전체 점수 분포·학년별 1등).
+   .rcard/.rcards 는 css/result.css 가 이미 정의해 둔, 회차 결과 화면과
+   똑같은 흰 카드 박스를 그대로 재사용한다. */
+#roundsStats{flex:none;width:100%;max-width:920px;margin:0 auto;padding:0 20px 8px}
+.rcard__title-sub{margin-left:4px;font-size:12.5px;font-weight:500;color:var(--ink-3)}
+.gradetop{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+.gradetop__row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:#FCFDFE;
+}
+.gradetop__grade{font-size:13.5px;font-weight:700;color:var(--navy-2)}
+.gradetop__score{font-size:15px;font-weight:800;color:var(--navy)}
+.gradetop__score.is-empty{font-size:12.5px;font-weight:500;color:var(--ink-3)}
+@media (max-width:640px){
+  .rcards{grid-template-columns:1fr}
 }
 
 /* ---------------- 회차 문제(한 번에 한 문항) + 답란 ---------------- */

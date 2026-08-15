@@ -148,12 +148,9 @@ const U = (() => {
       return '<div class="scorechart__bar' + (i === mineBucket ? ' is-mine' : '') + '" style="height:' + h + '%" title="' + lo + '~' + hi + '점 · ' + c + '명"></div>';
     }).join('');
 
-    // 막대 아래 점수 범위 힌트(0점~만점 사이 5~6개 눈금만 표시해 막대와 겹치지 않게 한다)
-    const tickCount = Math.min(5, numBuckets - 1);
-    const tickIdx = new Set();
-    for (let t = 0; t <= tickCount; t++) tickIdx.add(Math.round(t * (numBuckets - 1) / tickCount));
+    // 막대 아래 점수 경계 눈금 — 구간 경계(5, 10, 15, 20 ...)를 전부 표시한다.
     const axis = counts.map((c, i) =>
-      '<span class="scorechart__tick">' + (tickIdx.has(i) ? i * bucketSize + '점' : '') + '</span>'
+      '<span class="scorechart__tick">' + (i * bucketSize) + '</span>'
     ).join('');
 
     let rank = '';

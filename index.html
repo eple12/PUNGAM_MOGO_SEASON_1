@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="format-detection" content="telephone=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>제1회 풍암 실수킬러 모의고사 · 수학 영역</title>
+<title>pH S1 · 수학 영역</title>
 
 <link rel="stylesheet" href="vendor/katex/katex.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css">
@@ -55,7 +55,7 @@
       <span class="rlanding__eyebrow-line" aria-hidden="true"></span>
     </div>
 
-    <h1 class="rlanding__title" id="rlTitle" data-rl-in>제1회 풍암 실수킬러 모의고사</h1>
+    <h1 class="rlanding__title" id="rlTitle" data-rl-in>pH S1</h1>
 
     <button class="rlscrollcue" id="rlScrollCue" type="button" aria-label="아래로 스크롤해 자세히 보기">
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
@@ -70,45 +70,24 @@
   <div class="rlbody">
     <div class="rlink" id="rlInk" aria-hidden="true">
       <svg class="rlink__svg" id="rlInkSvg"></svg>
-      <!-- 만년필 — 닙(펜촉) 끝이 svg 로컬 좌표 (0,0) 에 정확히 오도록 그려서,
-           js/rounds.js 가 이 지점을 회전 피벗(transform-origin, css/rounds.css)
-           삼아 펜촉이 실제로 곡선 끝에 얹힌 것처럼 보이게 한다.
-           viewBox 를 렌더 크기(66×18)와 1:1 로 맞춰 로컬 좌표 = px 가 되게
-           했다(스케일 계산 없이 transform-origin 을 상수로 바로 쓸 수 있게). -->
+      <!-- 만년필 — 몸통 없이 닙(펜촉) 머리 부분만 크게 그린다. 은색 느낌을
+           내기 위해 각진(직선 윤곽) 두 면으로 나눠 한쪽은 밝게, 한쪽은
+           어둡게 채워 입체감을 준다(부드러운 그라디언트 대신 각진 단면).
+           js/rounds.js 가 방향을 고정한 채(더 이상 진행 방향으로 회전
+           안 함) 살짝 기울여 배치한다. 닙 끝이 svg 로컬 좌표 (0,0) 에
+           오도록 그려서 이 지점을 그대로 이동 기준점(transform-origin,
+           css/rounds.css)으로 삼는다. viewBox 를 렌더 크기(36×48)와 1:1
+           로 맞춰 로컬 좌표 = px 가 되게 했다(렌더 크기 54x72). -->
       <div class="rlink__pen" id="rlInkPen">
-        <svg viewBox="-64 -9 68 18" width="66" height="18">
-          <defs>
-            <!-- 배럴에 원기둥 광택을 그라디언트로 넣는다(가장자리는 어둡게,
-                 위쪽에 밝은 하이라이트 띠) — 예전엔 이걸 별도의 밝은 선
-                 하나로 흉내 냈는데, 그라디언트로 배럴 자체에 녹이니 훨씬
-                 입체적으로 보인다. -->
-            <linearGradient id="rlpenBarrelGrad" x1="0" y1="-6.2" x2="0" y2="6.2" gradientUnits="userSpaceOnUse">
-              <stop class="rlpen__stop-edge" offset="0%"/>
-              <stop class="rlpen__stop-mid" offset="36%"/>
-              <stop class="rlpen__stop-sheen" offset="50%"/>
-              <stop class="rlpen__stop-mid" offset="64%"/>
-              <stop class="rlpen__stop-edge" offset="100%"/>
-            </linearGradient>
-            <linearGradient id="rlpenNibGrad" x1="0" y1="-4.6" x2="0" y2="4.6" gradientUnits="userSpaceOnUse">
-              <stop class="rlpen__stop-goldlight" offset="0%"/>
-              <stop class="rlpen__stop-gold" offset="50%"/>
-              <stop class="rlpen__stop-golddark" offset="100%"/>
-            </linearGradient>
-          </defs>
-          <!-- 배럴(몸통) -->
-          <path class="rlpen__barrel" d="M-22 -6.2 L-53 -6.2 Q-60.5 -6.2 -60.5 0 Q-60.5 6.2 -53 6.2 L-22 6.2 Z"/>
-          <!-- 캡 밴드 두 줄(컨버터식 만년필의 이중 밴드) -->
-          <rect class="rlpen__band" x="-31.5" y="-6.4" width="1.7" height="12.8" rx=".85"/>
-          <rect class="rlpen__band" x="-28" y="-6.4" width="1.7" height="12.8" rx=".85"/>
-          <!-- 그립(닙과 배럴을 잇는 원뿔) -->
-          <path class="rlpen__grip" d="M-16 -4.6 L-22 -6.2 L-22 6.2 L-16 4.6 Z"/>
-          <!-- 닙(펜촉) — 직선 삼각형 대신 살짝 곡선으로 좁아지게 그려 실제
-               닙의 유선형 윤곽에 가깝게 했다. -->
-          <path class="rlpen__nib" d="M0 0 Q-5.5 -1.1 -16 -4.6 L-16 4.6 Q-5.5 1.1 0 0 Z"/>
+        <svg viewBox="-27 -57 54 72" width="54" height="72">
+          <!-- 오른쪽(밝은) 면 -->
+          <path class="rlpen__facet-light" d="M0 12 L21 -9 L10.5 -45 L0 -51 Z"/>
+          <!-- 왼쪽(어두운) 면 -->
+          <path class="rlpen__facet-dark" d="M0 12 L-21 -9 L-10.5 -45 L0 -51 Z"/>
           <!-- 닙 슬릿 -->
-          <path class="rlpen__slit" d="M-1.2 0 L-14.6 0"/>
+          <path class="rlpen__slit" d="M0 9 L0 -27"/>
           <!-- 숨구멍 -->
-          <circle class="rlpen__hole" cx="-9.6" cy="0" r="1.05"/>
+          <circle class="rlpen__hole" cx="0" cy="-21" r="3.6"/>
         </svg>
       </div>
     </div>
@@ -157,13 +136,18 @@
     </div>
 
     <button class="btn btn--primary btn--xl rlanding__cta" id="btnEnterRounds" type="button" data-scroll-in>
-      <span>응시 입장</span>
+      <span>인적사항 작성</span>
     </button>
   </div>
 </section>
 
 <!-- ============================ 회차 선택 ============================ -->
 <section class="screen" id="screenRounds">
+  <button class="rlscrollcue rlscrollcue--fixed" id="roundsScrollCue" type="button" aria-label="아래로 스크롤해 전체 통계 보기">
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
   <div class="rounds">
     <header class="rounds__head">
       <button class="btn btn--text" id="btnBackLanding" type="button">← 랜딩으로</button>
@@ -171,6 +155,17 @@
       <p class="rounds__hint">카드를 눌러 원하는 회차부터 시작하십시오. 인적사항은 최초 1회만 작성합니다.</p>
     </header>
     <div class="rgrid" id="roundGrid"></div>
+
+    <div class="rcards" id="roundsStats">
+      <section class="rcard">
+        <h2 class="rcard__title">전체 점수 분포 <span class="rcard__title-sub">(회차 합산)</span></h2>
+        <div class="scorechart-host" id="overallScoreChartHost"><p class="scorechart__empty">불러오는 중…</p></div>
+      </section>
+      <section class="rcard">
+        <h2 class="rcard__title">학년별 1등</h2>
+        <div class="gradetop" id="gradeTopHost"><p class="scorechart__empty">불러오는 중…</p></div>
+      </section>
+    </div>
   </div>
 </section>
 

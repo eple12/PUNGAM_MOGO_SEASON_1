@@ -346,6 +346,22 @@
   color:var(--c);background:#fff;
 }
 
+/* 제출 완료된 회차 — 카드가 원래 회차 색(--c)으로 진하게 칠해져 있던 걸
+   흰색에 가깝게 흐릿하게 바래게 해서, 아직 안 푼 회차들과 한눈에
+   구분되게 한다(js/rounds.js 가 buildRoundGrid() 에서 붙이는 .is-done).
+   흰 배경 위에선 기존의 흰 글자가 안 보이므로 텍스트 색은 --c 로 뒤집는다. */
+.rselcard.is-done .rselcard__face{
+  background:color-mix(in srgb, var(--c) 30%, #fff);
+  box-shadow:0 8px 20px rgba(16,24,40,.08);
+}
+.rselcard.is-done .rselcard__watermark__l1,.rselcard.is-done .rselcard__watermark__l2{
+  color:color-mix(in srgb, var(--c) 18%, #fff);
+}
+.rselcard.is-done .rselcard__day,.rselcard.is-done .rselcard__author{color:var(--c)}
+.rselcard.is-done .rselcard__timer{color:var(--c);background:color-mix(in srgb, var(--c) 16%, #fff)}
+.rselcard.is-done .rselcard__meta{color:var(--ink-3)}
+.rselcard.is-done .rselcard__state{background:var(--c);color:#fff}
+
 @media (max-width:900px){
   .rselcard{margin-left:-9vw}
   .rselcard__watermark__l1,.rselcard__watermark__l2{font-size:19vw}

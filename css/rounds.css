@@ -5,8 +5,19 @@
 /* ---------------- 랜딩 ---------------- */
 /* #screenIntro 자체는 그냥 세로로 쌓이는 일반 블록이다 — 안의 .rlhero 가
    풀뷰포트로 스스로 중앙 정렬하고, 그 아래 .rlbody 는 자연스러운 문서
-   흐름으로 이어져 스크롤된다. */
-#screenIntro.is-active{display:block}
+   흐름으로 이어져 스크롤된다.
+   모눈종이 격자는 여기 #screenIntro 자체의 background-image 로 깐다 —
+   background-image 는 박스 높이와 무관하게 자동으로 반복 타일링되므로,
+   히어로만이 아니라 그 아래 스크롤되는 .rlbody 끝까지 별도 계산 없이
+   똑같은 격자가 이어진다(색은 color-mix 로 옅게 섞어 은은하게 깔아 둔다 —
+   전체가 다 보이는 배경이라 본문 텍스트를 방해하지 않을 정도로만). */
+#screenIntro.is-active{
+  display:block;position:relative;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--line) 70%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--line) 70%, transparent) 1px, transparent 1px);
+  background-size:44px 44px;
+}
 
 .rlhero{
   position:relative;overflow:hidden;min-height:100dvh;
@@ -14,18 +25,20 @@
   padding:64px 20px 84px;text-align:center;
 }
 
-/* 은은한 격자 배경 — 중심부(메달·제목 근처)로 갈수록 옅어지는 방사형 마스크를
-   씌워 장식이 본문 텍스트 가독성을 해치지 않게 한다. 순수 장식 요소라
-   클릭·스크린리더 모두에서 제외한다. */
+/* 로고(메달) 주변만 격자를 한 겹 더 진하게 겹쳐 그린다 — 위 #screenIntro
+   전체 격자와 같은 44px 격자를 그대로 이어서(inset:0 으로 원점을 맞춰
+   둘이 어긋나지 않게 함) 색만 더 진한 --line-2 로, 메달 중심에서 옅어지는
+   방사형 마스크를 씌운다. 순수 장식 요소라 클릭·스크린리더 모두에서
+   제외한다. */
 .rlhero__bg{
-  position:absolute;inset:-10%;z-index:0;pointer-events:none;
+  position:absolute;inset:0;z-index:0;pointer-events:none;
   background-image:
-    linear-gradient(var(--line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    linear-gradient(var(--line-2) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-2) 1px, transparent 1px);
   background-size:44px 44px;
-  -webkit-mask-image:radial-gradient(ellipse 60% 55% at 50% 40%, #000 0%, transparent 72%);
-  mask-image:radial-gradient(ellipse 60% 55% at 50% 40%, #000 0%, transparent 72%);
-  opacity:.55;
+  -webkit-mask-image:radial-gradient(ellipse 55% 50% at 50% 38%, #000 0%, transparent 75%);
+  mask-image:radial-gradient(ellipse 55% 50% at 50% 38%, #000 0%, transparent 75%);
+  opacity:.75;
 }
 
 /* 메달(엠블럼) — 첫 화면에서 가장 먼저 시선을 붙잡는 3D 오브젝트. perspective
@@ -96,11 +109,21 @@
    는 이 상수를 그대로 알고 있다는 전제로 translate 값을 그만큼 보정해
    회전축이 실제로 닙 끝에 오도록 만든다. */
 .rlink__pen{position:absolute;left:0;top:0;transform-origin:64px 9px;will-change:transform}
-.rlpen__barrel{fill:var(--navy)}
-.rlpen__sheen{fill:none;stroke:rgba(255,255,255,.4);stroke-width:1;stroke-linecap:round}
-.rlpen__band,.rlpen__grip,.rlpen__nib{fill:var(--gold)}
-.rlpen__slit{fill:none;stroke:var(--navy);stroke-width:.6}
-.rlpen__hole{fill:var(--navy)}
+.rlpen__barrel{fill:url(#rlpenBarrelGrad)}
+.rlpen__band{fill:var(--gold)}
+.rlpen__grip{fill:color-mix(in srgb, var(--gold) 88%, var(--navy-2))}
+.rlpen__nib{fill:url(#rlpenNibGrad)}
+.rlpen__slit{fill:none;stroke:var(--navy-2);stroke-width:.55}
+.rlpen__hole{fill:var(--navy-2)}
+/* 그라디언트 stop 은 presentation attribute(stop-color="var(...)")로 바로
+   쓰면 오래된 브라우저 호환이 불안정해, 여느 색과 마찬가지로 클래스로
+   CSS 에서 지정한다. */
+.rlpen__stop-edge{stop-color:var(--navy-2)}
+.rlpen__stop-mid{stop-color:var(--navy)}
+.rlpen__stop-sheen{stop-color:color-mix(in srgb, var(--navy) 45%, white)}
+.rlpen__stop-gold{stop-color:var(--gold)}
+.rlpen__stop-goldlight{stop-color:color-mix(in srgb, var(--gold) 55%, white)}
+.rlpen__stop-golddark{stop-color:color-mix(in srgb, var(--gold) 70%, black)}
 
 /* 회차 컬렉션·이벤트·출제진·유의사항 — 모두 같은 형태의 섹션 라벨을 쓴다 */
 .rlanding__section-head{

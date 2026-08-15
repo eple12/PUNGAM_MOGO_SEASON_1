@@ -203,18 +203,78 @@ const RoundApp = (() => {
   // 같은 값을 써야 한다(펜 svg 를 바꾸면 이 두 곳도 같이 맞춰야 한다).
   const PEN_TIP_X = 64, PEN_TIP_Y = 9;
 
-  function buildInkPath(w, h) {
-    const cx = w * .5, left = w * .28, right = w * .72;
-    const waves = Math.max(2, Math.round(h / 420));
-    const seg = h / waves;
-    let d = 'M ' + cx + ' 0';
-    for (let i = 0; i < waves; i++) {
-      const y0 = i * seg, y1 = y0 + seg / 2, y2 = y0 + seg;
-      const side = i % 2 === 0 ? right : left;
-      d += ' C ' + side + ' ' + (y0 + seg * .18) + ', ' + side + ' ' + (y1 - seg * .18) + ', ' + cx + ' ' + y1;
-      d += ' C ' + side + ' ' + (y1 + seg * .18) + ', ' + side + ' ' + (y2 - seg * .18) + ', ' + cx + ' ' + y2;
+  /* 웨이포인트를 catmull-rom 스플라인으로 이어 매끄러운(접선이 이어지는)
+     3차 베지어 경로를 만든다 — 예전 버전은 구간마다 개별 C 커맨드를 손으로
+     이어 붙여서, 구간이 바뀌는 지점마다 접선 방향이 안 맞아 뾰족하게
+     꺾여 보였다. 여기서는 각 점에서의 접선을 그 앞뒤 점으로 자동 계산해
+     이어 붙이므로 어떤 점을 지나가게 하든(고리를 포함해서도) 항상
+     매끄럽게 이어진다. */
+  function smoothPath(pts) {
+    if (pts.length < 2) return '';
+    /* 균일(uniform) catmull-rom 은 이웃 점 사이 간격이 서로 크게 다르면
+       접선을 과도하게 튀어나오게 계산해 오히려 뾰족한 첨점(cusp)을 만든다
+       — 이 경로는 위아래로 성큼성큼 오가는 구간과, 반경이 훨씬 작은 고리
+       구간이 한 배열 안에 같이 있어 간격 차이가 크다. 대신 점 사이의 실제
+       거리(제곱근, alpha=.5 = centripetal) 를 반영해 접선을 계산하면
+       간격이 고르지 않아도 첨점·자기교차 없이 매끄럽게 이어진다. */
+    const alpha = .5;
+    function knot(t, a, b) {
+      const dx = b.x - a.x, dy = b.y - a.y;
+      return t + Math.pow(Math.sqrt(dx * dx + dy * dy) || 1e-6, alpha);
+    }
+    let d = 'M ' + pts[0].x.toFixed(1) + ' ' + pts[0].y.toFixed(1);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] || pts[i];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[i + 2] || p2;
+
+      const t0 = 0;
+      const t1 = knot(t0, p0, p1) || 1e-6;
+      const t2 = knot(t1, p1, p2);
+      const t3 = knot(t2, p2, p3);
+      const d1 = t1 - t0 || 1e-6, d2 = t2 - t1 || 1e-6, d3 = t2 - t0 || 1e-6;
+      const d4 = t3 - t2 || 1e-6, d5 = t3 - t1 || 1e-6;
+
+      const m1x = d2 * ((p1.x - p0.x) / d1 - (p2.x - p0.x) / d3 + (p2.x - p1.x) / d2);
+      const m1y = d2 * ((p1.y - p0.y) / d1 - (p2.y - p0.y) / d3 + (p2.y - p1.y) / d2);
+      const m2x = d2 * ((p2.x - p1.x) / d2 - (p3.x - p1.x) / d5 + (p3.x - p2.x) / d4);
+      const m2y = d2 * ((p2.y - p1.y) / d2 - (p3.y - p1.y) / d5 + (p3.y - p2.y) / d4);
+
+      const c1x = p1.x + m1x / 3, c1y = p1.y + m1y / 3;
+      const c2x = p2.x - m2x / 3, c2y = p2.y - m2y / 3;
+      d += ' C ' + c1x.toFixed(1) + ' ' + c1y.toFixed(1) + ', ' + c2x.toFixed(1) + ' ' + c2y.toFixed(1) + ', ' + p2.x.toFixed(1) + ' ' + p2.y.toFixed(1);
     }
     return d;
+  }
+
+  /* 그냥 위아래로만 오가지 않고, 중간에 필기체 매듭처럼 한 바퀴 살짝 못
+     닫힌 고리(플로리시)를 한 번 그리며 내려가도록 웨이포인트를 자유롭게
+     배치한다. */
+  function buildInkPath(w, h) {
+    const cx = w * .5, amp = Math.min(w * .22, 130);
+    const pts = [{ x: cx, y: 0 }];
+
+    const before = Math.max(1, Math.round(h * .42 / 260));
+    for (let i = 1; i <= before; i++) {
+      pts.push({ x: cx + (i % 2 ? amp : -amp), y: (h * .42) * (i / before) });
+    }
+
+    const loopCx = cx - amp * .25, loopCy = h * .5;
+    const loopRx = amp * .85, loopRy = loopRx * 1.15;
+    const loopN = 7;
+    for (let i = 0; i < loopN; i++) {
+      const a = -Math.PI / 2 + (i / loopN) * Math.PI * 2 * (6.2 / 7);
+      pts.push({ x: loopCx + Math.cos(a) * loopRx, y: loopCy + Math.sin(a) * loopRy });
+    }
+
+    const after = Math.max(1, Math.round(h * .5 / 260));
+    for (let i = 1; i <= after; i++) {
+      pts.push({ x: cx + (i % 2 ? -amp : amp), y: Math.min(h * .58 + (h * .42) * (i / after), h) });
+    }
+    pts.push({ x: cx, y: h });
+
+    return smoothPath(pts);
   }
 
   function setupInkTrail() {

@@ -77,20 +77,38 @@
            했다(스케일 계산 없이 transform-origin 을 상수로 바로 쓸 수 있게). -->
       <div class="rlink__pen" id="rlInkPen">
         <svg viewBox="-64 -9 68 18" width="66" height="18">
+          <defs>
+            <!-- 배럴에 원기둥 광택을 그라디언트로 넣는다(가장자리는 어둡게,
+                 위쪽에 밝은 하이라이트 띠) — 예전엔 이걸 별도의 밝은 선
+                 하나로 흉내 냈는데, 그라디언트로 배럴 자체에 녹이니 훨씬
+                 입체적으로 보인다. -->
+            <linearGradient id="rlpenBarrelGrad" x1="0" y1="-6.2" x2="0" y2="6.2" gradientUnits="userSpaceOnUse">
+              <stop class="rlpen__stop-edge" offset="0%"/>
+              <stop class="rlpen__stop-mid" offset="36%"/>
+              <stop class="rlpen__stop-sheen" offset="50%"/>
+              <stop class="rlpen__stop-mid" offset="64%"/>
+              <stop class="rlpen__stop-edge" offset="100%"/>
+            </linearGradient>
+            <linearGradient id="rlpenNibGrad" x1="0" y1="-4.6" x2="0" y2="4.6" gradientUnits="userSpaceOnUse">
+              <stop class="rlpen__stop-goldlight" offset="0%"/>
+              <stop class="rlpen__stop-gold" offset="50%"/>
+              <stop class="rlpen__stop-golddark" offset="100%"/>
+            </linearGradient>
+          </defs>
           <!-- 배럴(몸통) -->
-          <path class="rlpen__barrel" d="M-22 -6 L-54 -6 Q-60 -6 -60 0 Q-60 6 -54 6 L-22 6 Z"/>
-          <!-- 배럴의 원기둥 하이라이트 -->
-          <path class="rlpen__sheen" d="M-25 -3.8 L-51 -3.8"/>
-          <!-- 캡 밴드 -->
-          <rect class="rlpen__band" x="-27.5" y="-6.3" width="2.4" height="12.6" rx="1.1"/>
+          <path class="rlpen__barrel" d="M-22 -6.2 L-53 -6.2 Q-60.5 -6.2 -60.5 0 Q-60.5 6.2 -53 6.2 L-22 6.2 Z"/>
+          <!-- 캡 밴드 두 줄(컨버터식 만년필의 이중 밴드) -->
+          <rect class="rlpen__band" x="-31.5" y="-6.4" width="1.7" height="12.8" rx=".85"/>
+          <rect class="rlpen__band" x="-28" y="-6.4" width="1.7" height="12.8" rx=".85"/>
           <!-- 그립(닙과 배럴을 잇는 원뿔) -->
-          <path class="rlpen__grip" d="M-16 -4.5 L-22 -6 L-22 6 L-16 4.5 Z"/>
-          <!-- 닙(펜촉) -->
-          <path class="rlpen__nib" d="M0 0 L-16 -4.5 L-16 4.5 Z"/>
+          <path class="rlpen__grip" d="M-16 -4.6 L-22 -6.2 L-22 6.2 L-16 4.6 Z"/>
+          <!-- 닙(펜촉) — 직선 삼각형 대신 살짝 곡선으로 좁아지게 그려 실제
+               닙의 유선형 윤곽에 가깝게 했다. -->
+          <path class="rlpen__nib" d="M0 0 Q-5.5 -1.1 -16 -4.6 L-16 4.6 Q-5.5 1.1 0 0 Z"/>
           <!-- 닙 슬릿 -->
-          <path class="rlpen__slit" d="M-1.2 0 L-15 0"/>
+          <path class="rlpen__slit" d="M-1.2 0 L-14.6 0"/>
           <!-- 숨구멍 -->
-          <circle class="rlpen__hole" cx="-10" cy="0" r="1.1"/>
+          <circle class="rlpen__hole" cx="-9.6" cy="0" r="1.05"/>
         </svg>
       </div>
     </div>

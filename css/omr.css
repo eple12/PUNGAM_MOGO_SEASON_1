@@ -307,7 +307,12 @@
 .omr.is-white .bub.is-on{box-shadow:inset 0 0 0 2px #fff}
 .omr.is-locked .bub{cursor:default}
 
-/* 답란 가림막 */
+/* 답란 가림막 — 시험이 시작되지 않은(exam/locked 가 아닌) 상태에서 답란
+   칸이 표기 가능한 것처럼 보이지 않게 덮어 둔다. 인적사항 작성 화면
+   (mode==='identity')에서는 답란 자체가 이 시점엔 전혀 쓰이지 않으므로
+   (회차 방식은 별도의 작은 답란(js/rounds.js)을 따로 쓰고, 이 답란은
+   시험이 시작된 뒤에만 의미가 있다) 가림막만 덮어 두는 대신 .omr__ans
+   섹션 전체를 아예 잘라내 인적사항 작성에 불필요한 스크롤을 없앤다. */
 .ansveil{
   display:none;position:absolute;inset:4px 20px 0;
   align-items:center;justify-content:center;background:rgba(240,236,204,.72);
@@ -317,8 +322,7 @@
   background:#fff;border:1.6px solid var(--omr-ink);border-radius:8px;
   padding:12px 22px;font-size:14px;font-weight:700;box-shadow:0 8px 24px rgba(60,55,20,.16);
 }
-.omr.is-identity .ansveil{display:flex}
-.omr.is-identity .ansgrid{pointer-events:none;opacity:.45}
+.omr.is-identity .omr__ans{display:none}
 
 @media (max-width:1100px){
   .ansgrid{grid-template-columns:repeat(6,1fr)}

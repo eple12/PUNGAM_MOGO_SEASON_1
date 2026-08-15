@@ -8,7 +8,13 @@
 <title>pH S1 · 수학 영역</title>
 
 <link rel="stylesheet" href="vendor/katex/katex.min.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css">
+<!-- 폰트 CSS는 외부 CDN(jsdelivr.net) 이라 이걸 그냥 <link rel=stylesheet> 로
+     두면 DNS·TLS 왕복이 끝나기 전까지 게이트 화면조차 못 그린다(렌더 블로킹).
+     media=print 로 받아 두고 로드되면 all 로 바꾸는 표준 트릭으로, 폰트가
+     아직 안 왔으면 기본 서체로 먼저 그리고 도착하면 바꿔 낀다 — 첫 페인트가
+     외부망 속도에 발목 잡히지 않는다. -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css"></noscript>
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/gate.css">
 <link rel="stylesheet" href="css/intro.css">
@@ -500,27 +506,33 @@
   </svg>
 </button>
 
-<script src="vendor/katex/katex.min.js"></script>
-<script src="vendor/katex/contrib/auto-render.min.js"></script>
-<script src="vendor/anime/anime.min.js"></script>
+<!-- 전부 defer — 20개 스크립트가 순서대로 하나씩 "내려받고 실행하고 다음 걸
+     내려받는" 식으로 막혀 있으면(기본 동작) 특히 외부 CDN(gstatic.com,
+     jsdelivr.net) 왕복이 낄 때마다 그만큼 게이트/랜딩이 늦게 뜬다. defer 는
+     실행 순서(문서 순서)는 그대로 지키면서 다운로드만 파싱을 막지 않고
+     동시에 받게 해, DOMContentLoaded 직전까지는 한 번에 몰아서 실행된다.
+     인라인 <script> 가 이 사이에 없어 순서 의존성 걱정 없이 안전하다. -->
+<script src="vendor/katex/katex.min.js" defer></script>
+<script src="vendor/katex/contrib/auto-render.min.js" defer></script>
+<script src="vendor/anime/anime.min.js" defer></script>
 <!-- Firebase(중복 응시 확인·결과 저장용). js/remote.js 의 FIREBASE_CONFIG 를
      채우기 전에는 로드는 되어도 아무 동작도 하지 않는다. -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="js/remote.js"></script>
-<script src="js/config.js"></script>
-<script src="js/questions.js"></script>
-<script src="js/questions.enc.js"></script>
-<script src="js/util.js"></script>
-<script src="js/viewport.js"></script>
-<script src="js/store.js"></script>
-<script src="js/ink.js"></script>
-<script src="js/omr.js"></script>
-<script src="js/tutorial.js"></script>
-<script src="js/exam.js"></script>
-<script src="js/result.js"></script>
-<script src="js/app.js"></script>
-<script src="js/rounds.js"></script>
-<script src="js/gate.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js" defer></script>
+<script src="js/remote.js" defer></script>
+<script src="js/config.js" defer></script>
+<script src="js/questions.js" defer></script>
+<script src="js/questions.enc.js" defer></script>
+<script src="js/util.js" defer></script>
+<script src="js/viewport.js" defer></script>
+<script src="js/store.js" defer></script>
+<script src="js/ink.js" defer></script>
+<script src="js/omr.js" defer></script>
+<script src="js/tutorial.js" defer></script>
+<script src="js/exam.js" defer></script>
+<script src="js/result.js" defer></script>
+<script src="js/app.js" defer></script>
+<script src="js/rounds.js" defer></script>
+<script src="js/gate.js" defer></script>
 </body>
 </html>

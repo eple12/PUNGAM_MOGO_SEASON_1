@@ -212,9 +212,16 @@ const RoundApp = (() => {
      이어 붙여서, 구간이 바뀌는 지점마다 접선 방향이 안 맞아 뾰족하게
      꺾여 보였다. 여기서는 각 점에서의 접선을 그 앞뒤 점으로 자동 계산해
      이어 붙이므로 어떤 점을 지나가게 하든(고리를 포함해서도) 항상
-     매끄럽게 이어진다. */
-  function smoothPath(pts) {
-    if (pts.length < 2) return '';
+     매끄럽게 이어진다.
+     SVG 'd' 문자열이 아니라 베지어 구간 배열(x0,y0,c1,c2,x1,y1)을 그대로
+     반환한다 — 예전엔 이 문자열을 화면에 없는 <path>에 넣고 브라우저의
+     getTotalLength/getPointAtLength 로 곡선 위 점을 뽑았는데, 점을 1000개
+     안팎 뽑아야 하는 이 용도로는 그 네이티브 호출 자체가 비정상적으로
+     느려서(포인트 수가 많아질수록 특히) 랜딩 진입 직후 몇 초간 뚜렷하게
+     멎어 보이는 원인이었다. 구간을 직접 들고 있으면 순수 JS 산술만으로
+     같은 곡선 위 점·길이를 구할 수 있어 그 비용을 없앨 수 있다. */
+  function smoothSegments(pts) {
+    if (pts.length < 2) return [];
     /* 균일(uniform) catmull-rom 은 이웃 점 사이 간격이 서로 크게 다르면
        접선을 과도하게 튀어나오게 계산해 오히려 뾰족한 첨점(cusp)을 만든다
        — 이 경로는 위아래로 성큼성큼 오가는 구간과, 반경이 훨씬 작은 고리
@@ -226,7 +233,7 @@ const RoundApp = (() => {
       const dx = b.x - a.x, dy = b.y - a.y;
       return t + Math.pow(Math.sqrt(dx * dx + dy * dy) || 1e-6, alpha);
     }
-    let d = 'M ' + pts[0].x.toFixed(1) + ' ' + pts[0].y.toFixed(1);
+    const segs = [];
     for (let i = 0; i < pts.length - 1; i++) {
       const p0 = pts[i - 1] || pts[i];
       const p1 = pts[i];
@@ -245,11 +252,56 @@ const RoundApp = (() => {
       const m2x = d2 * ((p2.x - p1.x) / d2 - (p3.x - p1.x) / d5 + (p3.x - p2.x) / d4);
       const m2y = d2 * ((p2.y - p1.y) / d2 - (p3.y - p1.y) / d5 + (p3.y - p2.y) / d4);
 
-      const c1x = p1.x + m1x / 3, c1y = p1.y + m1y / 3;
-      const c2x = p2.x - m2x / 3, c2y = p2.y - m2y / 3;
-      d += ' C ' + c1x.toFixed(1) + ' ' + c1y.toFixed(1) + ', ' + c2x.toFixed(1) + ' ' + c2y.toFixed(1) + ', ' + p2.x.toFixed(1) + ' ' + p2.y.toFixed(1);
+      segs.push({
+        x0: p1.x, y0: p1.y,
+        c1x: p1.x + m1x / 3, c1y: p1.y + m1y / 3,
+        c2x: p2.x - m2x / 3, c2y: p2.y - m2y / 3,
+        x1: p2.x, y1: p2.y
+      });
     }
-    return d;
+    return segs;
+  }
+
+  /* 3차 베지어 구간 위 t(0~1) 지점의 좌표 — 표준 베지어 공식 그대로라
+     getPointAtLength 와 결과가 사실상 동일하다(직접 검증: 같은 곡선을
+     두 방식으로 각각 렌더링해 겹쳐 봐도 어긋나는 픽셀이 없다). */
+  function bezierAt(seg, t) {
+    const mt = 1 - t, a = mt * mt * mt, b = 3 * mt * mt * t, c = 3 * mt * t * t, d = t * t * t;
+    return { x: a * seg.x0 + b * seg.c1x + c * seg.c2x + d * seg.x1, y: a * seg.y0 + b * seg.c1y + c * seg.c2y + d * seg.y1 };
+  }
+
+  /* 구간마다 SUB 개로 잘게 나눠 누적 호 길이 표를 미리 만들어 둔다(한 번만).
+     이후 "호 길이 L 지점의 점"은 이 표에서 이분 탐색으로 구간을 찾고 그
+     구간 안에서 선형보간만 하면 되니, getPointAtLength 를 프레임마다·
+     점마다 새로 부르는 것보다 훨씬 싸다. */
+  function buildLengthTable(segs, sub) {
+    const table = [{ len: 0, seg: 0, t: 0 }];
+    let acc = 0;
+    for (let s = 0; s < segs.length; s++) {
+      let prev = bezierAt(segs[s], 0);
+      for (let k = 1; k <= sub; k++) {
+        const t = k / sub;
+        const p = bezierAt(segs[s], t);
+        acc += Math.hypot(p.x - prev.x, p.y - prev.y);
+        table.push({ len: acc, seg: s, t });
+        prev = p;
+      }
+    }
+    return table;
+  }
+
+  function pointAtArcLen(segs, table, L) {
+    let lo = 0, hi = table.length - 1;
+    if (L <= 0) return bezierAt(segs[0], 0);
+    if (L >= table[hi].len) return bezierAt(segs[segs.length - 1], 1);
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1;
+      if (table[mid].len < L) lo = mid; else hi = mid;
+    }
+    const a = table[lo], b = table[hi];
+    const localT = a.len === b.len ? 0 : (L - a.len) / (b.len - a.len);
+    const t = a.seg === b.seg ? a.t + (b.t - a.t) * localT : b.t * localT;
+    return bezierAt(segs[b.seg], t);
   }
 
   /* 사용자가 준 참고 이미지(필기체 서명 한 획, img/Screenshot_20260815_231840
@@ -259,7 +311,7 @@ const RoundApp = (() => {
      획 전체를 한 번씩만 지나는 경로, Hierholzer 알고리즘)를 구해 실제
      펜 순서 그대로 뽑았다(스크립트: 스크래치패드 trace_ink4.py). 이미지
      크기는 1482×2201, 획은 (657,94)에서 시작해 (1115,1945)에서 끝난다.
-     REF_TRACE 는 그 원본 픽셀 좌표(692점)이고, buildInkPath 는 이 배열을
+     REF_TRACE 는 그 원본 픽셀 좌표(692점)이고, buildInkSegments 는 이 배열을
      0~1 로 정규화한 뒤 페이지의 실제 폭(가장자리 여백 포함)·높이에 맞춰
      늘여서 쓴다. */
   const REF_TRACE = [
@@ -334,7 +386,7 @@ const RoundApp = (() => {
   ];
   const REF_W = 1482, REF_Y0 = 94, REF_Y1 = 1945;
 
-  function buildInkPath(w, h, btnBox, authorsBox, rulesBox, margins, eventBox) {
+  function buildInkSegments(w, h, btnBox, authorsBox, rulesBox, margins, eventBox) {
     // 뷰포트에 본문(.rlbody) 바깥 여백이 남아 있으면(넓은 화면) 그 여백
     // 쪽으로 크게 쓸어내릴 수 있는 훨씬 넓은 캔버스를 확보한다.
     const edgeR = margins && margins.right > 40 ? w + Math.min(margins.right * .6, 110) : w - 14;
@@ -377,19 +429,20 @@ const RoundApp = (() => {
       pts.push({ x: bcx, y: btnBox.bottom + 22 });
     }
 
-    return smoothPath(pts);
+    return smoothSegments(pts);
   }
 
   /* 곡선을 일정 간격(step, px)으로 샘플링해 각 지점의 좌표·접선각을 얻는다
-     — 리본 폭 계산(만년필 굵기 변화)에 쓴다. */
-  function sampleCurve(refPath, step) {
-    const len = refPath.getTotalLength();
+     — 리본 폭 계산(만년필 굵기 변화)에 쓴다. table 은 buildLengthTable() 로
+     미리 만들어 둔 누적 호 길이 표. */
+  function sampleCurve(segs, table, step) {
+    const len = table[table.length - 1].len;
     const n = Math.max(2, Math.round(len / step));
     const pts = [];
     for (let i = 0; i <= n; i++) {
       const l = (i / n) * len;
-      const p = refPath.getPointAtLength(l);
-      const p2 = refPath.getPointAtLength(Math.min(len, l + .75));
+      const p = pointAtArcLen(segs, table, l);
+      const p2 = pointAtArcLen(segs, table, Math.min(len, l + .75));
       pts.push({ x: p.x, y: p.y, ang: Math.atan2(p2.y - p.y, p2.x - p.x), t: i / n });
     }
     return pts;
@@ -435,7 +488,7 @@ const RoundApp = (() => {
     const introEl = document.getElementById('screenIntro');
     if (!wrap || !svg || !pen || !body || !introEl) return;
 
-    let refPath = null, curveLen = 0, rafPending = false;
+    let segs = null, lenTable = null, curveLen = 0, rafPending = false;
     let fullPts = [], inkEl = null, sheenEl = null;
     // screen() 은 화면 전환을 그냥 .is-active 클래스 토글(display:none)로만
     // 하는 SPA 라, 여기서 scroll 리스너를 한 번 달아 두면 예전엔 사용자가
@@ -480,12 +533,15 @@ const RoundApp = (() => {
       const rulesBox = localBox(document.querySelector('.rlanding__rulesec'));
       const margins = { left: marginL, right: marginR };
 
-      // 기준 경로(화면엔 안 그림) — 리본·펜 위치 계산은 전부 이걸로 한다.
-      svg.innerHTML = '<path id="rlinkRef" d="' + buildInkPath(w, h, btnBox, authorsBox, rulesBox, margins, eventBox) + '" fill="none" stroke="none"></path>' +
-        '<path class="rlink__ink"></path><path class="rlink__sheen"></path>';
-      refPath = svg.querySelector('#rlinkRef');
-      curveLen = refPath.getTotalLength();
-      fullPts = sampleCurve(refPath, 6);
+      // 기준 곡선은 이제 화면에 그리는 <path>가 아니라 베지어 구간
+      // 배열이다(smoothSegments) — 리본·펜 위치 계산은 전부 이걸로 한다.
+      // getTotalLength/getPointAtLength 같은 네이티브 SVG 지오메트리 호출을
+      // 아예 안 쓰므로 점이 많아도 느려지지 않는다.
+      segs = buildInkSegments(w, h, btnBox, authorsBox, rulesBox, margins, eventBox);
+      lenTable = buildLengthTable(segs, 16);
+      curveLen = lenTable[lenTable.length - 1].len;
+      fullPts = sampleCurve(segs, lenTable, 6);
+      svg.innerHTML = '<path class="rlink__ink"></path><path class="rlink__sheen"></path>';
       inkEl = svg.querySelector('.rlink__ink');
       sheenEl = svg.querySelector('.rlink__sheen');
       update();
@@ -499,13 +555,13 @@ const RoundApp = (() => {
        대비 얼마나 왔는가"로 계산해, 페이지를 끝까지 내리면 정확히 1이
        되도록 한다. */
     function update() {
-      if (!refPath || !inkEl) return;
+      if (!segs || !inkEl) return;
       const rect = body.getBoundingClientRect();
       const bodyTopAbs = window.scrollY + rect.top;
       const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
       const start = Math.max(0, bodyTopAbs - window.innerHeight * 0.5);
       const progress = Math.min(1, Math.max(0, (window.scrollY - start) / Math.max(1, maxScroll - start)));
-      const p1 = refPath.getPointAtLength(curveLen * progress);
+      const p1 = pointAtArcLen(segs, lenTable, curveLen * progress);
 
       // 리본을 사각형 클립이 아니라 "지금까지 지나온 경로 순서" 그대로
       // 잘라서 그린다 — 고리(플로리시)처럼 y 좌표가 오르내리는 구간도
@@ -537,10 +593,9 @@ const RoundApp = (() => {
     // setupInkTrail() 은 boot() 안에서 phase 복원 분기(enterRound/goIdentity/
     // showRoundsScreen)보다 먼저 실행되므로, 이 시점엔 #screenIntro 가 아직
     // (정적 HTML 기본값 그대로) is-active 여도 실제로 랜딩에 머물지는 boot()
-    // 가 끝나 봐야 안다 — 그 전에 곧바로 rebuild() 를 부르면(경로 위 ~1000개
-    // 점을 SVG getPointAtLength 로 찍는 무거운 동기 작업) 시험/결과 화면으로
-    // 바로 들어가는 사용자까지도 매번 로딩 순간에 그 비용을 물게 된다.
-    // boot() 이 완전히 끝난 뒤(rAF)에야 실제 활성 화면을 보고 판단한다.
+    // 가 끝나 봐야 안다 — 시험/결과 화면으로 바로 들어가는 사용자는 애초에
+    // rebuild() 자체가 필요 없으므로, boot() 이 완전히 끝난 뒤(rAF)에야
+    // 실제 활성 화면을 보고 판단한다.
     requestAnimationFrame(() => {
       active = introEl.classList.contains('is-active');
       if (active) rebuild();

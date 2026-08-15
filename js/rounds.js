@@ -432,10 +432,18 @@ const RoundApp = (() => {
   function setupInkTrail() {
     if (typeof anime === 'undefined' || rlReduceMotion()) return;
     const wrap = U.el('#rlInk'), svg = U.el('#rlInkSvg'), pen = U.el('#rlInkPen'), body = U.el('.rlbody');
-    if (!wrap || !svg || !pen || !body) return;
+    const introEl = document.getElementById('screenIntro');
+    if (!wrap || !svg || !pen || !body || !introEl) return;
 
     let refPath = null, curveLen = 0, rafPending = false;
     let fullPts = [], inkEl = null, sheenEl = null;
+    // screen() 은 화면 전환을 그냥 .is-active 클래스 토글(display:none)로만
+    // 하는 SPA 라, 여기서 scroll 리스너를 한 번 달아 두면 예전엔 사용자가
+    // 랜딩을 벗어나 시험/결과 화면 등에서 스크롤할 때도 매 프레임 이 무거운
+    // SVG 경로 재계산이 계속 돌았다(화면을 아예 못 보고 지나간 사용자도
+    // 포함) — 앱 전체가 버벅이던 원인. 랜딩 화면이 실제로 활성 상태일
+    // 때만 계산하도록 막는다.
+    let active = false;
 
     function rebuild() {
       const w = body.clientWidth, h = body.scrollHeight;
@@ -520,14 +528,35 @@ const RoundApp = (() => {
     }
 
     function onScroll() {
+      if (!active) return;
       if (rafPending) return;
       rafPending = true;
       requestAnimationFrame(() => { rafPending = false; update(); });
     }
 
-    rebuild();
+    // setupInkTrail() 은 boot() 안에서 phase 복원 분기(enterRound/goIdentity/
+    // showRoundsScreen)보다 먼저 실행되므로, 이 시점엔 #screenIntro 가 아직
+    // (정적 HTML 기본값 그대로) is-active 여도 실제로 랜딩에 머물지는 boot()
+    // 가 끝나 봐야 안다 — 그 전에 곧바로 rebuild() 를 부르면(경로 위 ~1000개
+    // 점을 SVG getPointAtLength 로 찍는 무거운 동기 작업) 시험/결과 화면으로
+    // 바로 들어가는 사용자까지도 매번 로딩 순간에 그 비용을 물게 된다.
+    // boot() 이 완전히 끝난 뒤(rAF)에야 실제 활성 화면을 보고 판단한다.
+    requestAnimationFrame(() => {
+      active = introEl.classList.contains('is-active');
+      if (active) rebuild();
+    });
     window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', () => rebuild());
+    window.addEventListener('resize', () => { if (active) rebuild(); });
+
+    // 다른 화면에 있다가 다시 랜딩으로 돌아오면(안내로 돌아가기 등) 그 사이
+    // 뷰포트가 바뀌었을 수 있으니 다시 그린다. is-active 토글 자체를
+    // 감시하면 screen() 을 부르는 곳마다 일일이 훅을 심지 않아도 된다.
+    new MutationObserver(() => {
+      const now = introEl.classList.contains('is-active');
+      if (now === active) return;
+      active = now;
+      if (active) rebuild();
+    }).observe(introEl, { attributes: true, attributeFilter: ['class'] });
   }
 
   /* ---------------- 회차 선택(카드) ---------------- */
@@ -622,8 +651,15 @@ const RoundApp = (() => {
       });
     }
 
-    grid.addEventListener('pointermove', e => {
-      if (e.pointerType !== 'mouse') return;
+    // pointermove 는 스크롤과 달리 브라우저가 알아서 rAF 에 맞춰 줄여주지
+    // 않는다 — 고주사율 마우스·트랙패드에서는 프레임당 여러 번 들어올 수
+    // 있는데, 그때마다 카드 6개 전부 getBoundingClientRect 를 부르고
+    // anime.set 을 쓰면 그만큼 헛일이 겹쳐 버벅임으로 느껴진다. 마지막
+    // 이벤트만 저장해 두고 프레임당 한 번만 실제로 계산한다.
+    let pendingEvent = null, moveRaf = null;
+    function processMove() {
+      moveRaf = null;
+      const e = pendingEvent;
       let best = null, bestDist = Infinity;
       cards.forEach(card => {
         const r = card.getBoundingClientRect();
@@ -636,6 +672,11 @@ const RoundApp = (() => {
         return;
       }
       activate(best, e);
+    }
+    grid.addEventListener('pointermove', e => {
+      if (e.pointerType !== 'mouse') return;
+      pendingEvent = e;
+      if (moveRaf == null) moveRaf = requestAnimationFrame(processMove);
     });
 
     grid.addEventListener('pointerleave', e => {

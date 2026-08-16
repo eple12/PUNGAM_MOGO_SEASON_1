@@ -44,6 +44,16 @@ const RoundApp = (() => {
   function screen(id) {
     U.els('.screen').forEach(s => s.classList.toggle('is-active', s.id === id));
     window.scrollTo(0, 0);
+    // js/app.js 의 screen() 과 동일하게 불러야 한다. 인적사항(#screenIdentity)
+    // 화면은 js/app.js 쪽 코드로 열리는데, 그 화면은 휴대폰에서 뷰포트를
+    // width=1080 으로 고정해 데스크톱 배율로 축소해 보여준다(js/viewport.js
+    // 의 WIDE_SCREENS). 회차 화면들은 그 목록에 없는데도 이 함수가
+    // Viewport.sync 를 안 불러서, 인적사항·튜토리얼을 거쳐 들어온 회차
+    // 화면이 그 축소된 뷰포트를 그대로 물려받고 있었다 — 실기기가 아니면
+    // 안 드러나지만, 배율이 안 맞는 뷰포트에서는 touch-action:none 캔버스의
+    // 제스처 인식이 깨지는 경우가 있어(필기 캔버스에서만 스크롤이 먹통이
+    // 되는 증상과 정확히 일치) 여기서도 매번 정상 배율로 되돌린다.
+    Viewport.sync(id);
   }
 
   function roundQuestions(def) {
@@ -796,6 +806,10 @@ const RoundApp = (() => {
     buildRoundGrid();
     attachCardTilt();
     screen('screenRounds');
+    // justify-content:safe center(css/rounds.css)로 카드가 넘칠 때도 양쪽
+    // 끝까지 스크롤은 되지만, 처음 들어왔을 땐 Day 01부터 보이도록 맨
+    // 왼쪽으로 맞춰 둔다.
+    U.el('#roundGrid').scrollLeft = 0;
     playRoundsIntro();
     tickRoundsList();
     stopRoundsTicker();

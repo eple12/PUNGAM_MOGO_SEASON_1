@@ -251,7 +251,14 @@
    이름이 겹치면 이 카드용 규칙(위치·크기·투명 배경 등)이 결과 화면의
    .rcard 박스에도 그대로 새어 들어가 레이아웃이 깨진다. */
 .rgrid{
-  flex:1;display:flex;justify-content:center;align-items:center;flex-wrap:nowrap;
+  flex:1;display:flex;align-items:center;flex-wrap:nowrap;
+  /* 카드 6장이 겹쳐진 폭이 뷰포트보다 넓어지는 모바일에서 justify-content:
+     center 만 쓰면(overflow-x:auto 여도) 넘친 왼쪽 절반이 스크롤로도 닿지
+     않는다 — 가운데 정렬 기준으로 스크롤 범위가 잡히면서 시작 지점이
+     이미 잘려 있기 때문이다. safe 키워드는 다 들어갈 땐 그대로 가운데
+     정렬하고, 넘칠 땐 flex-start 처럼 동작해 스크롤로 양쪽 끝까지 전부
+     닿게 해 준다. */
+  justify-content:safe center;
   /* 좌우에도 그림자가 번질 여유를 둔다 — 0 이면 맨 왼쪽·오른쪽 카드의
      그림자가 스크롤 컨테이너 경계에서 그대로 잘려 딱딱한 테두리처럼 보였다. */
   overflow-x:auto;overflow-y:auto;padding:56px 48px 90px;

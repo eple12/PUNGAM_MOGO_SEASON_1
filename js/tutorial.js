@@ -68,7 +68,10 @@ const Tutorial = (() => {
   function relayout() {
     if (!mounted) return;
     const minH = paperScroll.clientHeight - 2;
-    const need = inner.offsetHeight + 200;
+    // js/rounds.js 의 ROUND_INK_EXTRA 와 맞춘다 — 실제 회차 시험에서 받게 될
+    // 필기 공간과 같은 여유를 튜토리얼에서도 미리 보여준다(200px 는 스크롤할
+    // 거리가 거의 없어 아래 스크롤 동작 자체를 체험해 보기 어려웠다).
+    const need = inner.offsetHeight + 900;
     paper.style.height = Math.max(minH, need) + 'px';
     const w = paper.clientWidth, h = paper.clientHeight;
     const size = ink.size();
@@ -152,16 +155,66 @@ const Tutorial = (() => {
     updateNavUI();
   }
 
+  /* js/exam.js 의 bindPointer() 를 그대로 옮긴 것 — 이전 버전은 "손가락
+     필기가 꺼져 있으면 손가락으로 그리지 않는다"만 처리하고 그 입력을
+     스크롤로 넘겨주는 부분이 없었다. #tutInkCanvas 는 .ink 클래스를 그대로
+     쓰기 때문에(touch-action:none, css/exam.css) 캔버스 위에서는 브라우저가
+     알아서 스크롤해 주지도 않아, 펜 도구로 손가락 필기가 꺼져 있는 상태로
+     손가락을 대면 그리지도 스크롤되지도 않고 완전히 먹통이었다 — 실제 시험
+     화면과 똑같이 손가락 이동량만큼 스크롤을 직접 밀어주는 스크롤(관성
+     포함)을 그대로 옮겨온다. */
   function bindPointer() {
     const pt = e => {
       const r = canvas.getBoundingClientRect();
       return [e.clientX - r.left, e.clientY - r.top];
     };
-    // 실제 시험 화면(js/exam.js)과 같은 규칙 — 펜·마우스는 항상 그리고,
-    // 손가락(touch)은 손가락 필기를 켰을 때만 그린다. 꺼져 있으면 손이
-    // 스쳐도 무시되어(스크롤 등 기본 동작만 남는다) 오작동을 막는다.
     const canDraw = e => e.pointerType === 'pen' || e.pointerType === 'mouse' || (fingerDraw && e.pointerType === 'touch');
-    let drawing = false;
+
+    const IS_IPADOS = /iPad/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    const pointers = new Map();
+    let act = null;                 // 'draw' | 'erase' | 'scroll'
+    let drawId = null;
+    let sc = null;                  // 스크롤 상태
+    let flingId = 0;
+
+    let pendingStroke = null;
+    let pendingTimer = 0;
+    const DUP_MS = 45;
+    const DUP_R = 10;
+    const DUP_SPAN = 20;
+    const PALM_GRACE_MS = 250;
+
+    function looksLikeArtifact(s, x, y) {
+      const p0 = s.p[0];
+      if (Math.hypot(x - p0[0], y - p0[1]) >= DUP_R) return false;
+      const b = s.b;
+      return (b[2] - b[0]) < DUP_SPAN && (b[3] - b[1]) < DUP_SPAN;
+    }
+
+    const avgY = () => { let s = 0; pointers.forEach(p => s += p.y); return s / pointers.size; };
+
+    function stopFling() { cancelAnimationFrame(flingId); flingId = 0; }
+
+    function fling(v) {
+      stopFling();
+      if (Math.abs(v) < 1.2) return;
+      const step = () => {
+        v *= 0.945;
+        if (Math.abs(v) < 0.2) return;
+        const before = paperScroll.scrollTop;
+        paperScroll.scrollTop -= v;
+        if (paperScroll.scrollTop === before) return;
+        flingId = requestAnimationFrame(step);
+      };
+      flingId = requestAnimationFrame(step);
+    }
+
+    function beginScroll() {
+      act = 'scroll';
+      sc = { y: avgY(), t: performance.now(), v: 0, t0: performance.now(), startTop: paperScroll.scrollTop };
+    }
 
     // Excalidraw 의 실제 수정을 그대로 옮긴 것(PR #4705, onTapStart, 커밋 7049e2a).
     // 그리기 로직이 있는 pointerdown 이 아니라, 별도로 붙인 이 touchstart 리스너
@@ -172,33 +225,101 @@ const Tutorial = (() => {
     }, { passive: false });
 
     canvas.addEventListener('pointerdown', e => {
-      if (!canDraw(e)) return;
-      drawing = true;
-      const [x, y] = pt(e);
-      if (penTool === 'eraser') ink.eraseAt(x, y);
-      else ink.begin(x, y, e.pressure || 0.5, penTool === 'erase-area' ? 'erase' : undefined);
-      try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 무시 */ }
-    }, { passive: false });
-    canvas.addEventListener('pointermove', e => {
       e.preventDefault();
-      if (!drawing) return;
-      if (penTool === 'eraser') {
+
+      // 애플펜슬 필기 중 손바닥 접촉으로 생기는 touch 포인터를 걸러낸다.
+      if (e.pointerType === 'touch' && !fingerDraw && (drawId !== null || act === 'draw' || act === 'erase')) {
+        return;
+      }
+
+      stopFling();
+      pointers.set(e.pointerId, { y: e.clientY, type: e.pointerType });
+
+      const drawnByTouch = drawId !== null && pointers.get(drawId) && pointers.get(drawId).type === 'touch';
+      if (pointers.size >= 2 && (drawnByTouch || act !== 'draw')) {
+        const others = Array.from(pointers.entries()).filter(([id]) => id !== e.pointerId);
+        const onlyStillTouch = others.length === 1 && others[0][1].type === 'touch';
+        if (canDraw(e) && act === 'scroll' && !fingerDraw && onlyStillTouch && sc &&
+            paperScroll.scrollTop === sc.startTop && performance.now() - sc.t0 < PALM_GRACE_MS) {
+          pointers.delete(others[0][0]);
+          act = null; sc = null;
+        } else {
+          if (act === 'draw') { ink.cancel(); drawId = null; }
+          beginScroll();
+          return;
+        }
+      }
+      if (pointers.size >= 2) return;
+
+      if (canDraw(e)) {
         const [x, y] = pt(e);
-        ink.eraseAt(x, y);
+        if (pendingStroke) {
+          if (looksLikeArtifact(pendingStroke, x, y)) {
+            clearTimeout(pendingTimer);
+            ink.undoIfLast(pendingStroke);
+          }
+          pendingStroke = null;
+        }
+        if (penTool === 'eraser') { act = 'erase'; ink.eraseAt(x, y); }
+        else if (penTool === 'erase-area') { act = 'draw'; ink.begin(x, y, e.pressure || 0.5, 'erase'); }
+        else { act = 'draw'; ink.begin(x, y, e.pressure || 0.5); }
+        drawId = e.pointerId;
+        try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 캡처 실패해도 필기는 이어진다 */ }
       } else {
-        U.penEvents(e).forEach(ev => { const [x, y] = pt(ev); ink.extend(x, y, ev.pressure || 0.5); });
+        beginScroll();
       }
     }, { passive: false });
-    const stop = () => {
-      if (!drawing) return;
-      drawing = false;
-      if (penTool !== 'eraser') ink.end();
-      saveStrokes();
-      updateUndoRedo();
-    };
-    canvas.addEventListener('pointerup', stop);
-    canvas.addEventListener('pointercancel', stop);
-    canvas.addEventListener('pointerleave', stop);
+
+    canvas.addEventListener('pointermove', e => {
+      e.preventDefault();
+      if (!pointers.has(e.pointerId)) return;
+      pointers.set(e.pointerId, { y: e.clientY, type: pointers.get(e.pointerId).type });
+
+      if (act === 'scroll' && sc) {
+        const y = avgY();
+        const now = performance.now();
+        const dy = y - sc.y;
+        paperScroll.scrollTop -= dy;
+        const dt = Math.max(1, now - sc.t);
+        sc.v = sc.v * 0.6 + (dy / dt * 16) * 0.4;
+        sc.y = y; sc.t = now;
+        return;
+      }
+      if (e.pointerId !== drawId) return;
+
+      const list = U.penEvents(e);
+      if (act === 'draw') {
+        list.forEach(ev => { const [x, y] = pt(ev); ink.extend(x, y, ev.pressure || 0.5); });
+      } else if (act === 'erase') {
+        list.forEach(ev => { const [x, y] = pt(ev); ink.eraseAt(x, y); });
+      }
+    }, { passive: false });
+
+    function finish(e) {
+      pointers.delete(e.pointerId);
+      if (act === 'draw' && e.pointerId === drawId) {
+        const s = ink.end();
+        if (s && IS_IPADOS) {
+          clearTimeout(pendingTimer);
+          pendingStroke = s;
+          pendingTimer = setTimeout(() => {
+            pendingStroke = null;
+            saveStrokes(); updateUndoRedo();
+          }, DUP_MS);
+        } else if (s) {
+          saveStrokes(); updateUndoRedo();
+        }
+        drawId = null;
+      }
+      if (act === 'erase' && e.pointerId === drawId) { saveStrokes(); updateUndoRedo(); drawId = null; }
+      if (act === 'scroll' && pointers.size === 0 && sc) fling(sc.v);
+      if (pointers.size === 0) { act = null; sc = null; }
+      else if (act === 'scroll') sc = { y: avgY(), t: performance.now(), v: 0 };
+    }
+
+    canvas.addEventListener('pointerup', finish);
+    // pointercancel 은 손바닥 접촉 등으로 WebKit 이 포인터 흐름을 가로챌 때도 발생한다.
+    canvas.addEventListener('pointercancel', finish);
     canvas.addEventListener('contextmenu', e => e.preventDefault());
   }
 
@@ -323,6 +444,10 @@ const Tutorial = (() => {
     const ov = U.el('#tutOmrOverlay');
     ov.classList.toggle('is-open', open);
     ov.setAttribute('aria-hidden', open ? 'false' : 'true');
+    // 튜토리얼 화면 자체는 실제 회차 시험과 같은 배율(기기 기본)을 쓰지만,
+    // 이 답안지 패널만은 인적사항 답안지와 같은 넓은 표라 열려 있는 동안엔
+    // 데스크톱 배율이 필요하다 — js/viewport.js 참고.
+    Viewport.setDesktop(open);
   }
 
   function mountOmr() {

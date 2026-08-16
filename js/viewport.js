@@ -16,7 +16,14 @@ const Viewport = (() => {
 
   // 이 화면들만 "데스크톱 사이트" 취급한다(랜딩 페이지·결과 화면은 원래도
   // 좁은 화면에 맞춰 반응형으로 잘 쌓이므로 그대로 둔다).
-  const WIDE_SCREENS = { screenIdentity: 1, screenTutorial: 1, screenExam: 1 };
+  // screenTutorial 은 여기 없다 — 튜토리얼은 학생이 실제로 치를 회차
+  // 시험(#screenRoundExam, 이쪽은 항상 기기 기본 배율)을 미리 체험하는
+  // 화면이라, 배율까지 실제 시험과 똑같아야 필기 공간 크기 등이 미리
+  // 본 대로 나온다. 다만 튜토리얼 안의 OMR 연습 답안지만은 인적사항
+  // 답안지와 같은 넓은 표라 데스크톱 배율이 필요한데, 그건 화면 전체가
+  // 아니라 그 패널이 열려 있는 동안만 필요하므로 js/tutorial.js 의
+  // openOmr() 이 setDesktop() 으로 그때그때 켜고 끈다.
+  const WIDE_SCREENS = { screenIdentity: 1, screenExam: 1 };
 
   const meta = document.querySelector('meta[name="viewport"]');
 
@@ -38,5 +45,13 @@ const Viewport = (() => {
     meta.setAttribute('content', wantDesktop ? DESKTOP_CONTENT : DEFAULT_CONTENT);
   }
 
-  return { sync, isPhone };
+  // 화면 전체가 아니라 그 안의 특정 패널(튜토리얼의 OMR 연습 답안지 등)이
+  // 열려 있는 동안만 데스크톱 배율이 필요할 때 쓴다 — WIDE_SCREENS 목록과
+  // 무관하게 바로 켜고 끌 수 있다.
+  function setDesktop(on) {
+    if (!meta) return;
+    meta.setAttribute('content', (isPhone && on) ? DESKTOP_CONTENT : DEFAULT_CONTENT);
+  }
+
+  return { sync, setDesktop, isPhone };
 })();

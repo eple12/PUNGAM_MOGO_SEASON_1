@@ -999,44 +999,187 @@ const RoundApp = (() => {
     inkTool = t;
     U.el('#reToolPen').classList.toggle('is-on', t === 'pen');
     U.el('#reToolEraser').classList.toggle('is-on', t === 'eraser');
+    // js/exam.js 의 setTool() 과 동일 — 지우개일 때 커서를 바꿔 지금 뭘 쓰는
+    // 도구인지 보여준다(css/rounds.css 의 .rePaper.is-erasing .reInk).
+    // bind() 가 부팅 시 한 번 setInkTool('pen') 을 부르는데, 그 시점엔 아직
+    // 어떤 회차도 들어가지 않아 ensureInk() 가 rePaper 를 채우기 전이라
+    // undefined 일 수 있다.
+    if (rePaper) rePaper.classList.toggle('is-erasing', t === 'eraser');
   }
 
+  /* js/exam.js 의 bindPointer() 를 그대로 옮긴 것이다 — 예전의 단순한 버전은
+     "손가락 필기가 꺼져 있을 때 손가락으로는 그리지 않는다"만 처리하고, 그
+     경우 손가락 입력을 스크롤로 넘겨주는 부분이 아예 없었다. 그런데
+     .reInk 는 touch-action:none 이라(획을 긋는 도중 브라우저가 제스처를
+     가로채 스크롤해 버리는 걸 막으려고 필요하다 — css/rounds.css 참고)
+     캔버스 위에서는 브라우저가 알아서 스크롤해 주는 일도 없다. 즉 펜
+     도구를 쓰는 중(손가락 필기 꺼짐)에 손가락으로 스크롤하려 하면 그릴
+     수도, 브라우저가 대신 스크롤해 주지도 않아 완전히 먹통이었다.
+     js/exam.js 는 이 문제를 겪지 않는데, 손가락이 "그리지 않는" 입력일
+     때 act='scroll' 로 놓고 pointermove 에서 reScroll.scrollTop 을 직접
+     밀어주는 스크롤을 손수 구현해 두었기 때문이다(관성 스크롤 fling 포함).
+     회차 필기 공간에도 그 구현을 그대로 옮긴다 — 팔뚝/손바닥 오인 방지,
+     아이패드OS 중복 획 아티팩트 억제까지 포함해서. 회차 쪽엔 '일반
+     지우개'(erase-area) 도구가 없어 그 부분만 뺐다. */
   function bindInkPointer() {
     const pt = e => {
       const r = reCanvas.getBoundingClientRect();
       return [e.clientX - r.left, e.clientY - r.top];
     };
     const canDraw = e => e.pointerType === 'pen' || e.pointerType === 'mouse' || (S.fingerDraw && e.pointerType === 'touch');
-    let drawing = false, mode = null;
+
+    // 애플펜슬 접촉 한 번에 포인터 스트림이 두 번 잡히는 iPadOS Safari 버그 감지 —
+    // js/exam.js 의 IS_IPADOS 판정과 동일하다.
+    const IS_IPADOS = /iPad/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    const pointers = new Map();
+    let act = null;                 // 'draw' | 'erase' | 'scroll'
+    let drawId = null;
+    let sc = null;                  // 스크롤 상태
+    let flingId = 0;
+
+    let pendingStroke = null;
+    let pendingTimer = 0;
+    const DUP_MS = 45;
+    const DUP_R = 10;
+    const DUP_SPAN = 20;
+    const PALM_GRACE_MS = 250;
+
+    function looksLikeArtifact(s, x, y) {
+      const p0 = s.p[0];
+      if (Math.hypot(x - p0[0], y - p0[1]) >= DUP_R) return false;
+      const b = s.b;
+      return (b[2] - b[0]) < DUP_SPAN && (b[3] - b[1]) < DUP_SPAN;
+    }
+
+    const avgY = () => { let s = 0; pointers.forEach(p => s += p.y); return s / pointers.size; };
+
+    function stopFling() { cancelAnimationFrame(flingId); flingId = 0; }
+
+    function fling(v) {
+      stopFling();
+      if (Math.abs(v) < 1.2) return;
+      const step = () => {
+        v *= 0.945;
+        if (Math.abs(v) < 0.2) return;
+        const before = reScroll.scrollTop;
+        reScroll.scrollTop -= v;
+        if (reScroll.scrollTop === before) return;
+        flingId = requestAnimationFrame(step);
+      };
+      flingId = requestAnimationFrame(step);
+    }
+
+    function beginScroll() {
+      act = 'scroll';
+      sc = { y: avgY(), t: performance.now(), v: 0, t0: performance.now(), startTop: reScroll.scrollTop };
+    }
+
+    // Apple Pencil Scribble 대응 — js/exam.js 와 같은 이유로 pointerdown 이
+    // 아니라 여기서 가장 먼저 preventDefault 한다.
+    reCanvas.addEventListener('touchstart', e => {
+      e.preventDefault();
+    }, { passive: false });
 
     reCanvas.addEventListener('pointerdown', e => {
-      if (!canDraw(e) || roundLocked()) return;
       e.preventDefault();
-      drawing = true;
-      const [x, y] = pt(e);
-      if (inkTool === 'eraser') { mode = 'erase'; reInk.eraseAt(x, y); }
-      else { mode = 'draw'; reInk.begin(x, y, e.pressure || 0.5); }
-      try { reCanvas.setPointerCapture(e.pointerId); } catch (err) { /* 캡처 실패해도 필기는 이어진다 */ }
+
+      if (roundLocked() && inkTool === 'eraser') return;
+
+      // 애플펜슬 필기 중 손바닥 접촉으로 생기는 touch 포인터를 걸러낸다.
+      if (e.pointerType === 'touch' && !S.fingerDraw && (drawId !== null || act === 'draw' || act === 'erase')) {
+        return;
+      }
+
+      stopFling();
+      pointers.set(e.pointerId, { y: e.clientY, type: e.pointerType });
+
+      const drawnByTouch = drawId !== null && pointers.get(drawId) && pointers.get(drawId).type === 'touch';
+      if (pointers.size >= 2 && (drawnByTouch || act !== 'draw')) {
+        const others = Array.from(pointers.entries()).filter(([id]) => id !== e.pointerId);
+        const onlyStillTouch = others.length === 1 && others[0][1].type === 'touch';
+        if (canDraw(e) && act === 'scroll' && !S.fingerDraw && !roundLocked() && onlyStillTouch && sc &&
+            reScroll.scrollTop === sc.startTop && performance.now() - sc.t0 < PALM_GRACE_MS) {
+          pointers.delete(others[0][0]);
+          act = null; sc = null;
+        } else {
+          if (act === 'draw') { reInk.cancel(); drawId = null; }
+          beginScroll();
+          return;
+        }
+      }
+      if (pointers.size >= 2) return;
+
+      if (canDraw(e)) {
+        if (roundLocked()) { beginScroll(); return; }
+        const [x, y] = pt(e);
+        if (pendingStroke) {
+          if (looksLikeArtifact(pendingStroke, x, y)) {
+            clearTimeout(pendingTimer);
+            reInk.undoIfLast(pendingStroke);
+          }
+          pendingStroke = null;
+        }
+        if (inkTool === 'eraser') { act = 'erase'; reInk.eraseAt(x, y); }
+        else { act = 'draw'; reInk.begin(x, y, e.pressure || 0.5); }
+        drawId = e.pointerId;
+        try { reCanvas.setPointerCapture(e.pointerId); } catch (err) { /* 캡처 실패해도 필기는 이어진다 */ }
+      } else {
+        beginScroll();
+      }
     }, { passive: false });
 
     reCanvas.addEventListener('pointermove', e => {
-      if (!drawing) return;
       e.preventDefault();
-      if (mode === 'erase') { const [x, y] = pt(e); reInk.eraseAt(x, y); }
-      else U.penEvents(e).forEach(ev => { const [x, y] = pt(ev); reInk.extend(x, y, ev.pressure || 0.5); });
+      if (!pointers.has(e.pointerId)) return;
+      pointers.set(e.pointerId, { y: e.clientY, type: pointers.get(e.pointerId).type });
+
+      if (act === 'scroll' && sc) {
+        const y = avgY();
+        const now = performance.now();
+        const dy = y - sc.y;
+        reScroll.scrollTop -= dy;
+        const dt = Math.max(1, now - sc.t);
+        sc.v = sc.v * 0.6 + (dy / dt * 16) * 0.4;
+        sc.y = y; sc.t = now;
+        return;
+      }
+      if (e.pointerId !== drawId) return;
+
+      const list = U.penEvents(e);
+      if (act === 'draw') {
+        list.forEach(ev => { const [x, y] = pt(ev); reInk.extend(x, y, ev.pressure || 0.5); });
+      } else if (act === 'erase') {
+        list.forEach(ev => { const [x, y] = pt(ev); reInk.eraseAt(x, y); });
+      }
     }, { passive: false });
 
-    const stop = () => {
-      if (!drawing) return;
-      drawing = false;
-      if (mode === 'draw') reInk.end();
-      mode = null;
-      saveRoundStrokes();
-      updateInkUndoRedo();
-    };
-    reCanvas.addEventListener('pointerup', stop);
-    reCanvas.addEventListener('pointercancel', stop);
-    reCanvas.addEventListener('pointerleave', stop);
+    function finish(e) {
+      pointers.delete(e.pointerId);
+      if (act === 'draw' && e.pointerId === drawId) {
+        const s = reInk.end();
+        if (s && IS_IPADOS) {
+          clearTimeout(pendingTimer);
+          pendingStroke = s;
+          pendingTimer = setTimeout(() => {
+            pendingStroke = null;
+            saveRoundStrokes(); updateInkUndoRedo();
+          }, DUP_MS);
+        } else if (s) {
+          saveRoundStrokes(); updateInkUndoRedo();
+        }
+        drawId = null;
+      }
+      if (act === 'erase' && e.pointerId === drawId) { saveRoundStrokes(); updateInkUndoRedo(); drawId = null; }
+      if (act === 'scroll' && pointers.size === 0 && sc) fling(sc.v);
+      if (pointers.size === 0) { act = null; sc = null; }
+      else if (act === 'scroll') sc = { y: avgY(), t: performance.now(), v: 0 };
+    }
+
+    reCanvas.addEventListener('pointerup', finish);
+    // pointercancel 은 손바닥 접촉 등으로 WebKit 이 포인터 흐름을 가로챌 때도 발생한다.
+    reCanvas.addEventListener('pointercancel', finish);
     reCanvas.addEventListener('contextmenu', e => e.preventDefault());
   }
 
@@ -1145,6 +1288,12 @@ const RoundApp = (() => {
     reInkLoadedFor = q.no;
     updateInkUndoRedo();
     requestAnimationFrame(() => {
+      // 이 콜백이 불릴 때까지 사용자가 이미 다른 문항으로 넘어갔으면(빠르게
+      // 다음/이전을 연달아 누른 경우) 아무것도 하지 않는다 — 안 그러면 지금
+      // 화면에 있는(새 문항의) 캔버스에 이 콜백이 원래 예약됐던 옛 문항의
+      // 필기를 다시 얹어써서, "문항을 오갔더니 필기가 밀려 보인다"는 증상으로
+      // 이어진다.
+      if (reInkLoadedFor !== q.no) return;
       const before = rePaper.style.height;
       relayoutInk();
       if (rePaper.style.height !== before) {

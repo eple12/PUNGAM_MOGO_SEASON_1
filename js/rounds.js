@@ -594,12 +594,19 @@ const RoundApp = (() => {
     // showRoundsScreen)보다 먼저 실행되므로, 이 시점엔 #screenIntro 가 아직
     // (정적 HTML 기본값 그대로) is-active 여도 실제로 랜딩에 머물지는 boot()
     // 가 끝나 봐야 안다 — 시험/결과 화면으로 바로 들어가는 사용자는 애초에
-    // rebuild() 자체가 필요 없으므로, boot() 이 완전히 끝난 뒤(rAF)에야
-    // 실제 활성 화면을 보고 판단한다.
-    requestAnimationFrame(() => {
+    // rebuild() 자체가 필요 없으므로, boot() 이 완전히 끝난 뒤에야 실제
+    // 활성 화면을 보고 판단한다. requestAnimationFrame 이 아니라
+    // setTimeout(...,0) 을 쓰는 이유: 브라우저는 탭이 백그라운드(모바일에서
+    // 웹뷰가 아직 화면에 완전히 뜨기 전, 앱 전환 애니메이션 도중 등
+    // document.visibilityState !== 'visible' 인 상태)일 때 rAF 콜백 자체를
+    // 아예 실행하지 않는다 — 그 상태로 페이지가 열리면 랜딩 잉크가 영원히
+    // 안 그려져(SVG가 텅 빈 채로 남아) 유리 카드 뒤로 비칠 게 없어서 카드가
+    // 그냥 불투명해 보이는 버그로 이어졌다(실제로 재현·확인함). setTimeout
+    // 은 화면이 보이는지와 무관하게 항상 실행된다.
+    setTimeout(() => {
       active = introEl.classList.contains('is-active');
       if (active) rebuild();
-    });
+    }, 0);
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', () => { if (active) rebuild(); });
 

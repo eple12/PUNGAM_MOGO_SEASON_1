@@ -354,6 +354,37 @@ const Remote = (() => {
     }
   }
 
+  /* checkRoundDuplicate 는 "이 회차에 이미 냈는지"만 보고, 그것도 실제로는
+     회차 화면을 연 뒤 백그라운드로 뒤늦게 확인한다(js/rounds.js 참고) — 같은
+     학번을 여러 사람이 동시에 써도(아직 아무도 제출 전이면) 걸러내는 관문이
+     애초에 없었다. 인적사항 작성을 끝내는 시점에 학번이 "이미 다른 이름으로"
+     쓰인 적이 있는지만 먼저 확인한다(같은 사람이 이어서 다음 회차를 푸는
+     정상적인 경우는 이름이 같으므로 걸리지 않는다) — 6개 회차 문서를 전부
+     찾아봐야 하는데, 회차 키가 r1~r6 로 고정돼 있어 목록을 그대로 박아 둔다. */
+  const ROUND_KEYS = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6'];
+  async function checkIdentityConflict({ id, name, noId }) {
+    if (!enabled || noId || !id) return { conflict: false, checked: true };
+    try {
+      const snaps = await Promise.all(
+        ROUND_KEYS.map(k => db.collection(ROUND_COLLECTION).doc(idDocKey(id) + '__' + k).get())
+      );
+      const trimmed = (name || '').trim();
+      for (const snap of snaps) {
+        if (!snap.exists) continue;
+        const data = snap.data();
+        const existingName = (data.name || '').trim();
+        if (existingName && existingName !== trimmed) {
+          return { conflict: true, checked: true, existingName };
+        }
+      }
+      return { conflict: false, checked: true };
+    } catch (e) {
+      // 확인 자체가 실패한 경우, 정상 응시생을 부당하게 막지 않도록
+      // "충돌 아님" 으로 통과시키되 checked:false 로 알려 둔다.
+      return { conflict: false, checked: false, error: e };
+    }
+  }
+
   /* saveResult 와 같은 구조(학번/이름 중 하나에 전체 내용, 다른 한쪽엔 표시용
      마커만)를 회차 단위로 그대로 적용한다. 기존 submissions/scores 컬렉션은
      전혀 건드리지 않고 roundSubmissions/roundScores 에만 쓴다. */
@@ -483,6 +514,6 @@ const Remote = (() => {
 
   return {
     get enabled() { return enabled; }, checkDuplicate, saveResult, fetchScores, startExam, clearInProgress,
-    checkRoundDuplicate, saveRoundResult, fetchRoundScores, fetchRoundLeaderboard, startRoundInProgress, clearRoundInProgress
+    checkRoundDuplicate, checkIdentityConflict, saveRoundResult, fetchRoundScores, fetchRoundLeaderboard, startRoundInProgress, clearRoundInProgress
   };
 })();

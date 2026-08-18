@@ -123,23 +123,28 @@ const RoundApp = (() => {
     return 'todo';
   }
 
+  // 지금 이 기기(브라우저)에 어느 학생 인적사항이 저장돼 있는지 보여준다 —
+  // 인적사항을 아직 안 썼으면(예: 새 기기·첫 방문) 숨긴다. 인적사항을 막
+  // 끝내면 랜딩이 아니라 곧장 회차 선택 화면으로 넘어가므로(completeIdentity
+  // 참고), 랜딩(#rlWhoami)·회차 선택(#rlWhoami2) 양쪽 다 갱신해 둔다 — 안 그러면
+  // "← 랜딩으로" 를 일부러 눌러야만 보이는 화면에만 떠 있게 된다.
+  function renderWhoami() {
+    const text = identityDone()
+      ? '현재 ' + (S.student.noId ? '학번 해당 없음(비재학생)' : '학번 ' + S.student.id) +
+        ' · ' + S.student.name + '님으로 로그인되어 있습니다'
+      : '';
+    ['#rlWhoami', '#rlWhoami2'].forEach(sel => {
+      const el = U.el(sel);
+      if (!el) return;
+      el.hidden = !text;
+      el.textContent = text;
+    });
+  }
+
   function renderLandingBadges() {
     const doneCount = ROUND_DEFS.filter(d => landingRoundState(d) === 'done').length;
     U.el('#rlProgress').textContent = doneCount + ' / ' + ROUND_DEFS.length + ' 완료';
-
-    // 지금 이 기기(브라우저)에 어느 학생 인적사항이 저장돼 있는지 보여준다
-    // — 인적사항을 아직 안 썼으면(예: 새 기기·첫 방문) 숨긴다.
-    const whoEl = U.el('#rlWhoami');
-    if (whoEl) {
-      if (identityDone()) {
-        whoEl.hidden = false;
-        whoEl.textContent = '현재 ' +
-          (S.student.noId ? '학번 해당 없음(비재학생)' : '학번 ' + S.student.id) +
-          ' · ' + S.student.name + '님으로 로그인되어 있습니다';
-      } else {
-        whoEl.hidden = true;
-      }
-    }
+    renderWhoami();
     U.el('#rlChips').innerHTML = ROUND_DEFS.map(def => {
       const state = landingRoundState(def);
       const dayNo = def.day.split(' ')[1];
@@ -875,6 +880,7 @@ const RoundApp = (() => {
     stopRoundTicker();
     buildRoundGrid();
     attachCardTilt();
+    renderWhoami();
     screen('screenRounds');
     // justify-content:safe center(css/rounds.css)로 카드가 넘칠 때도 양쪽
     // 끝까지 스크롤은 되지만, 처음 들어왔을 땐 Day 01부터 보이도록 맨
@@ -963,12 +969,40 @@ const RoundApp = (() => {
     });
   }
 
+  // js/app.js 의 beginExam() 과 같은 이유 — 아래 회차 중복 확인이 비동기라
+  // 그 사이 "작성 완료"를 연달아 누르면 확인이 겹쳐 돌 수 있다.
+  let completeIdentityBusy = false;
   async function completeIdentity() {
+    if (completeIdentityBusy) return;
     const name = (S.student.name || '').trim();
     const noId = !!S.student.noId;
     const id = noId ? '' : (S.idMarks.every(d => d != null) ? S.idMarks.join('') : '');
     if (name.length < 2) { U.toast('성명을 실명으로 정확히 입력하십시오.'); return; }
     if (!noId && !id) { U.toast('학번 ' + CONFIG.idDigits + '자리를 모두 표기하거나, 비재학생 버튼을 눌러 주십시오.'); return; }
+
+    // js/app.js 의 beginExam() 에 있던 사전 확인을 회차판에도 그대로
+    // 둔다 — checkRoundDuplicate() 는 "이 회차에 이미 냈는지"만, 그것도
+    // 화면을 연 뒤 뒤늦게 백그라운드로 확인해서, 같은 학번을 아직 아무도
+    // 제출하지 않은 상태로 여러 명이 동시에 써도 걸러내는 관문이 없었다.
+    // 여기서는 그 학번이 이미 "다른 이름"으로 쓰인 적이 있는지만 먼저
+    // 막는다(같은 사람이 이어서 다음 회차를 푸는 정상적인 경우는 이름이
+    // 같으므로 안 걸린다).
+    if (Remote.enabled) {
+      completeIdentityBusy = true;
+      const conflict = await Remote.checkIdentityConflict({ id, name, noId });
+      completeIdentityBusy = false;
+      if (conflict.conflict) {
+        await U.modal({
+          title: '학번이 이미 사용 중입니다',
+          body: '<p>학번 <b>' + id + '</b>은(는) 이미 <b>' + conflict.existingName + '</b>님으로 등록돼 있어 ' +
+                '<b>' + name + '</b>님으로는 계속할 수 없습니다.</p>' +
+                '<p>본인의 학번이 맞다면 감독관에게 문의하십시오.</p>',
+          buttons: [{ label: '확인', value: true, kind: 'primary' }]
+        });
+        return;
+      }
+    }
+
     S.student.name = name;
     S.student.id = id;
     const next = S.pendingRound;

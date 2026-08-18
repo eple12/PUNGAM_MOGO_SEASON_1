@@ -119,6 +119,14 @@
    것처럼 보여서(가장자리에 옅은 색이 비침) 광택 리본은 껐다. */
 .rlink__ink{fill:#000;opacity:1}
 .rlink__sheen{display:none}
+/* 획이 시작되는 맨 첫 부분만 옅게 — 참고 이미지를 그대로 따라간 첫
+   고리가 출제진 위 첫 문단 바로 위를 스치듯 지나가는데, 거기서부터
+   100% 검정으로 시작하면 그 문단 첫 줄을 살짝 가려 읽기 불편했다.
+   전체 폭 리본 하나에는 한 가지 fill 만 줄 수 있어(그러데이션 불가),
+   시작 부분 몇십 px만 별도 조각(js/rounds.js)으로 떼어 그 조각에만
+   그러데이션(#rlInkFade)을 먹인다 — 그 뒤로는 나머지 획과 자연스럽게
+   이어지며 100% 검정으로 돌아온다. */
+.rlink__ink-fade{fill:url(#rlInkFade)}
 /* transform-origin 을 닙 끝의 정확한 px 좌표로 고정해 둔다 — svg 의
    viewBox(-18 -38 36 48)를 렌더 크기(36×48)와 1:1 로 맞춰 뒀으므로, 로컬
    좌표 (0,0)(닙 끝)은 이 박스 안에서 항상 (27px, 57px) 지점이다.
@@ -176,7 +184,9 @@
 }
 .rlauthor__name{font-size:13.5px;font-weight:800;letter-spacing:-.01em;color:var(--ink)}
 .rlauthor__day{font-size:10.5px;font-weight:700;color:var(--c);letter-spacing:.04em}
-.rlauthor__line{font-size:11.5px;color:var(--ink-3);line-height:1.5}
+/* 출제자 한마디 — 카드에서 숨긴다(마크업·데이터는 그대로 둬서 나중에
+   다시 보이게 하려면 이 한 줄만 지우면 된다). */
+.rlauthor__line{display:none}
 @media (max-width:520px){.rlauthors{grid-template-columns:repeat(2,1fr)}}
 
 .rlanding__badges{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
@@ -392,6 +402,7 @@
 .gradetop__grade{font-size:13.5px;font-weight:700;color:var(--navy-2)}
 .gradetop__score{font-size:15px;font-weight:800;color:var(--navy)}
 .gradetop__score.is-empty{font-size:12.5px;font-weight:500;color:var(--ink-3)}
+.gradetop__name{font-size:13px;font-weight:600;color:var(--ink-2);margin-right:2px}
 @media (max-width:640px){
   .rcards{grid-template-columns:1fr}
 }
@@ -413,6 +424,25 @@
   display:flex;align-items:center;gap:10px;
 }
 .rebar__right{flex:none;margin-left:auto;display:flex;align-items:center;gap:10px}
+
+/* 태블릿 세로 폭(아이패드 기본 768px 안팎)에서는 뒤로가기·제목·타이머·
+   문항 이동·필기 도구·실행취소·제출까지 한 줄에 다 욱여넣을 자리가
+   없어 오른쪽 도구들이 화면 밖으로 잘려 나갔다. 한 줄 고정 대신 줄바꿈을
+   허용해 두 줄로 나눈다 — 1줄: 뒤로가기·제목·타이머, 2줄: 문항 이동
+   (왼쪽) · 필기 도구·실행취소·제출(오른쪽, margin-left:auto 로 계속
+   끝에 붙는다). .rebar__center 를 그동안 잡아 두던 절대좌표 가운데
+   정렬(막대 전체 기준)도 줄바꿈과 상극이라 함께 풀어 준다. */
+@media (max-width:900px){
+  .rebar{flex-wrap:wrap;height:auto;min-height:58px;padding:8px 14px;row-gap:8px}
+  .rebar__left{flex:1 1 100%}
+  .rebar__center{position:static;transform:none}
+  .rebar__title{gap:9px}
+  .rebar__day{font-size:16.5px}
+  .rebar__author{font-size:13.5px}
+  #reClockWrap .clock__label{display:none}
+  #reClockWrap .clock__time{font-size:19px}
+  .tool{padding:0 10px;font-size:12px}
+}
 .rebar__title{display:flex;align-items:baseline;gap:12px;min-width:0}
 .rebar__day{font-size:19px;font-weight:800;letter-spacing:.04em;color:var(--round-color,var(--navy))}
 .rebar__author{font-size:15.5px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

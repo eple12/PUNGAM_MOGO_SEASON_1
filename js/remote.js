@@ -450,7 +450,7 @@ const Remote = (() => {
     if (!enabled) return { ok: false, overallScores: [], gradeTop: {} };
     try {
       const snap = await db.collection(ROUND_COLLECTION).get();
-      const byStudent = new Map(); // key -> { total, grade }
+      const byStudent = new Map(); // key -> { total, grade, name }
       snap.docs.forEach(d => {
         const data = d.data();
         if (data.dup || typeof data.score !== 'number') return;
@@ -458,17 +458,19 @@ const Remote = (() => {
         let entry = byStudent.get(key);
         if (!entry) {
           const grade = (data.id && /^[123]/.test(data.id)) ? data.id.charAt(0) : null;
-          entry = { total: 0, grade };
+          entry = { total: 0, grade, name: data.name || null };
           byStudent.set(key, entry);
         }
         entry.total += data.score;
       });
       const overallScores = [];
+      // 학년별 1등은 이제 점수만이 아니라 이름도 같이 들고 있다(화면에서
+      // "김*수" 처럼 가운데만 가려서 보여준다 — U.maskName, js/util.js).
       const gradeTop = { 1: null, 2: null, 3: null };
       byStudent.forEach(entry => {
         overallScores.push(entry.total);
-        if (entry.grade && (gradeTop[entry.grade] == null || entry.total > gradeTop[entry.grade])) {
-          gradeTop[entry.grade] = entry.total;
+        if (entry.grade && (gradeTop[entry.grade] == null || entry.total > gradeTop[entry.grade].score)) {
+          gradeTop[entry.grade] = { score: entry.total, name: entry.name };
         }
       });
       return { ok: true, overallScores, gradeTop };

@@ -105,6 +105,17 @@ const U = (() => {
     } catch (e) { /* 렌더 실패 시 원문 노출 */ }
   }
 
+  /* 이름 가운데를 가려서 보여준다 — "김민수" → "김*수". 2글자는 가릴
+     "가운데"가 없어 뒷글자를 가리고("김수" → "김*"), 4글자 이상은 가운데
+     전부를 글자 수만큼 * 로 채운다("남궁민수" → "남**수"). */
+  function maskName(name) {
+    if (!name) return name;
+    const s = String(name).trim();
+    if (s.length <= 1) return s;
+    if (s.length === 2) return s[0] + '*';
+    return s[0] + '*'.repeat(s.length - 2) + s[s.length - 1];
+  }
+
   /* mm:ss */
   function clock(ms) {
     if (ms < 0) ms = 0;
@@ -277,5 +288,5 @@ const U = (() => {
     }, ms || 2200);
   }
 
-  return { el, els, make, esc, questionHtml, typeset, clock, durationText, CIRCLED, circ, scoreChart, scoreDots, modal, closeModal, toast, penEvents };
+  return { el, els, make, esc, questionHtml, typeset, clock, durationText, maskName, CIRCLED, circ, scoreChart, scoreDots, modal, closeModal, toast, penEvents };
 })();

@@ -493,13 +493,27 @@ const RoundApp = (() => {
   }
 
   function setupInkTrail() {
-    if (typeof anime === 'undefined' || rlReduceMotion()) return;
+    // 이 곡선은 anime.js 를 전혀 쓰지 않는다(순수 SVG/베지어 계산) — anime.js
+    // 로딩이 실패하거나 늦어도(느린 네트워크, 확장 프로그램 차단 등) 잉크
+    // 자체는 그릴 수 있는데 예전엔 다른 함수(히어로 등장 애니메이션 등)의
+    // 가드를 그대로 복사해 여기에도 걸어 둬서, anime 가 없으면 잉크가 통째로
+    // 안 그려졌다 — "일부 기기에서 랜딩 획이 안 나온다"의 원인 중 하나로
+    // 보이는 케이스라 없앤다.
     const wrap = U.el('#rlInk'), svg = U.el('#rlInkSvg'), pen = U.el('#rlInkPen'), body = U.el('.rlbody');
     const introEl = document.getElementById('screenIntro');
     if (!wrap || !svg || !pen || !body || !introEl) return;
 
+    // prefers-reduced-motion(다른 원인) 이면 스크롤에 맞춰 조금씩 그려지는
+    // 연출만 끄고, 획 자체는 완성된 모습 그대로 정적으로 보여준다 — 예전엔
+    // 이 경우도 아예 안 그렸는데, "모션 줄이기" 설정은 애니메이션을 꺼야
+    // 한다는 뜻이지 콘텐츠 자체를 숨기라는 뜻은 아니다(다른 스크롤 리빌
+    // 요소들도 이 화면에서 이미 이렇게 처리하고 있다 — initScrollReveal 참고).
+    const reduceMotion = rlReduceMotion();
+
     let segs = null, lenTable = null, curveLen = 0, rafPending = false;
-    let fullPts = [], inkEl = null, sheenEl = null;
+    let fullPts = [], inkEl = null, sheenEl = null, fadeEl = null;
+    // sampleCurve 의 6px 간격 기준 — 140점이면 약 840px 정도를 옅게 처리한다.
+    const FADE_POINTS = 140;
     // screen() 은 화면 전환을 그냥 .is-active 클래스 토글(display:none)로만
     // 하는 SPA 라, 여기서 scroll 리스너를 한 번 달아 두면 예전엔 사용자가
     // 랜딩을 벗어나 시험/결과 화면 등에서 스크롤할 때도 매 프레임 이 무거운
@@ -551,9 +565,35 @@ const RoundApp = (() => {
       lenTable = buildLengthTable(segs, 16);
       curveLen = lenTable[lenTable.length - 1].len;
       fullPts = sampleCurve(segs, lenTable, 6);
-      svg.innerHTML = '<path class="rlink__ink"></path><path class="rlink__sheen"></path>';
+      // 스톱을 시작·끝 2개만 두면(선형 보간) 사람 눈에는 초반 내내 거의
+      // 안 변하다가 끝부분에서 갑자기 확 진해지는 것처럼 보인다(불투명도는
+      // 선형으로 바뀌어도 인지되는 밝기는 그렇지 않다). ease-out 곡선
+      // (1-(1-t)^2)으로 미리 계산한 중간 스톱을 여러 개 끼워 넣어, 초반에
+      // 더 빨리 진해지고 끝으로 갈수록 완만해지게 한다.
+      svg.innerHTML =
+        '<defs><linearGradient id="rlInkFade" gradientUnits="userSpaceOnUse">' +
+          '<stop offset="0" stop-color="#000" stop-opacity=".08"></stop>' +
+          '<stop offset=".2" stop-color="#000" stop-opacity=".41"></stop>' +
+          '<stop offset=".4" stop-color="#000" stop-opacity=".67"></stop>' +
+          '<stop offset=".6" stop-color="#000" stop-opacity=".85"></stop>' +
+          '<stop offset=".8" stop-color="#000" stop-opacity=".96"></stop>' +
+          '<stop offset="1" stop-color="#000" stop-opacity="1"></stop>' +
+        '</linearGradient></defs>' +
+        '<path class="rlink__ink-fade"></path>' +
+        '<path class="rlink__ink"></path><path class="rlink__sheen"></path>';
+      fadeEl = svg.querySelector('.rlink__ink-fade');
       inkEl = svg.querySelector('.rlink__ink');
       sheenEl = svg.querySelector('.rlink__sheen');
+      // 그러데이션 방향은 시작점 → 시작에서 FADE_POINTS 번째 점까지의
+      // 실제 진행 방향으로 맞춘다 — 획이 어느 각도로 시작하든 항상 "그
+      // 지점에서 옅다가 진해지는" 것처럼 보이게(고정된 좌우/상하 방향
+      // 그러데이션이면 획이 대각선으로 시작할 때 이상하게 비친다).
+      const gradEl = svg.querySelector('#rlInkFade');
+      if (fullPts.length) {
+        const a = fullPts[0], b = fullPts[Math.min(FADE_POINTS, fullPts.length - 1)];
+        gradEl.setAttribute('x1', a.x); gradEl.setAttribute('y1', a.y);
+        gradEl.setAttribute('x2', b.x); gradEl.setAttribute('y2', b.y);
+      }
       update();
     }
 
@@ -566,11 +606,16 @@ const RoundApp = (() => {
        되도록 한다. */
     function update() {
       if (!segs || !inkEl) return;
-      const rect = body.getBoundingClientRect();
-      const bodyTopAbs = window.scrollY + rect.top;
-      const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-      const start = Math.max(0, bodyTopAbs - window.innerHeight * 0.5);
-      const progress = Math.min(1, Math.max(0, (window.scrollY - start) / Math.max(1, maxScroll - start)));
+      // 모션 줄이기가 켜져 있으면 스크롤과 무관하게 항상 끝까지(1) 그려진
+      // 완성 모습으로 고정한다 — 아래 스크롤 리스너 자체도 안 달아 두므로
+      // 이후 다시 계산될 일도 없다.
+      const progress = reduceMotion ? 1 : (() => {
+        const rect = body.getBoundingClientRect();
+        const bodyTopAbs = window.scrollY + rect.top;
+        const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+        const start = Math.max(0, bodyTopAbs - window.innerHeight * 0.5);
+        return Math.min(1, Math.max(0, (window.scrollY - start) / Math.max(1, maxScroll - start)));
+      })();
       const p1 = pointAtArcLen(segs, lenTable, curveLen * progress);
 
       // 리본을 사각형 클립이 아니라 "지금까지 지나온 경로 순서" 그대로
@@ -583,7 +628,15 @@ const RoundApp = (() => {
       // 끊긴 것처럼(선이 여러 조각으로 나뉜 것처럼) 보인다 — 참고 이미지
       // 처럼 아무리 가늘어져도 절대 끊기지 않는 한 획으로 보이려면 최소
       // 굵기를 눈에 띄게 남겨 둬야 한다.
-      inkEl.setAttribute('d', ribbonPath(shown, 3, 7.5));
+      // 맨 앞 FADE_POINTS 개만 따로 떼어(그러데이션 조각) 나머지(진한 검정)와
+      // 이어 붙인다 — 두 조각이 겹치는 경계점 하나를 공유해야 사이가 안 뜬다.
+      if (shown.length <= FADE_POINTS + 1) {
+        fadeEl.setAttribute('d', ribbonPath(shown, 3, 7.5));
+        inkEl.setAttribute('d', '');
+      } else {
+        fadeEl.setAttribute('d', ribbonPath(shown.slice(0, FADE_POINTS + 1), 3, 7.5));
+        inkEl.setAttribute('d', ribbonPath(shown.slice(FADE_POINTS), 3, 7.5));
+      }
       sheenEl.setAttribute('d', ribbonPath(shown, 1.4, 3));
       /* transform-origin(css/rounds.css)이 펜 박스 안에서 닙 끝의 고정
          px 좌표(18,38)에 있으므로, translate 는 그만큼 빼서 보정해야
@@ -617,7 +670,10 @@ const RoundApp = (() => {
       active = introEl.classList.contains('is-active');
       if (active) rebuild();
     }, 0);
-    window.addEventListener('scroll', onScroll, { passive: true });
+    // 모션 줄이기일 땐 progress 가 항상 1로 고정이라 스크롤에 반응할 일이
+    // 없다 — 리스너 자체를 안 달아 매 스크롤마다 헛되이 update() 가
+    // 불리는 것도 막는다.
+    if (!reduceMotion) window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', () => { if (active) rebuild(); });
 
     // 다른 화면에 있다가 다시 랜딩으로 돌아오면(안내로 돌아가기 등) 그 사이
@@ -842,11 +898,12 @@ const RoundApp = (() => {
       }
       chartHost.innerHTML = U.scoreChart(r.overallScores, myTotal, CONFIG.totalScore);
       gradeHost.innerHTML = [1, 2, 3].map(g => {
-        const score = r.gradeTop[g];
+        const top = r.gradeTop[g];
         return '<div class="gradetop__row">' +
           '<span class="gradetop__grade">' + g + '학년</span>' +
-          '<span class="gradetop__score' + (score == null ? ' is-empty' : '') + '">' +
-          (score == null ? '아직 없음' : score + '점') +
+          '<span class="gradetop__score' + (top == null ? ' is-empty' : '') + '">' +
+          (top == null ? '아직 없음' :
+            (top.name ? '<span class="gradetop__name">' + U.maskName(top.name) + '</span> ' : '') + top.score + '점') +
           '</span></div>';
       }).join('');
     });

@@ -7,13 +7,24 @@
  * ===================================================================== */
 
 (() => {
-  const GATE_ENABLED = true;
+  // 출제진 확인 단계가 끝나 실제 응시자에게 공개하는 단계로 넘어가면서
+  // 비밀번호 화면을 껐다. 다만 문항은 여전히 js/questions.enc.js 에
+  // 암호문으로만 실려 있으므로(그 파일 자체는 그대로 둔다), 화면을 그냥
+  // 지우기만 하면 복호화가 안 일어나 QUESTIONS 가 빈 채로 남아 시험이
+  // 깨진다 — 아래에서 알려진 비밀번호로 자동으로 한 번 복호화한 뒤에
+  // 부팅한다(사용자에게는 비밀번호 입력 과정 자체가 아예 안 보인다).
+  const GATE_ENABLED = false;
+  const AUTO_PASSWORD = 'pungam065535';
 
   const overlay = document.getElementById('gateOverlay');
 
   if (!GATE_ENABLED) {
     overlay.remove();
-    if (typeof RoundApp !== 'undefined' && typeof RoundApp.boot === 'function') RoundApp.boot();
+    attemptUnlock(new TextEncoder().encode(AUTO_PASSWORD))
+      .catch(e => console.error('[gate] 자동 복호화 실패:', e))
+      .finally(() => {
+        if (typeof RoundApp !== 'undefined' && typeof RoundApp.boot === 'function') RoundApp.boot();
+      });
     return;
   }
 

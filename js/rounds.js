@@ -126,6 +126,20 @@ const RoundApp = (() => {
   function renderLandingBadges() {
     const doneCount = ROUND_DEFS.filter(d => landingRoundState(d) === 'done').length;
     U.el('#rlProgress').textContent = doneCount + ' / ' + ROUND_DEFS.length + ' 완료';
+
+    // 지금 이 기기(브라우저)에 어느 학생 인적사항이 저장돼 있는지 보여준다
+    // — 인적사항을 아직 안 썼으면(예: 새 기기·첫 방문) 숨긴다.
+    const whoEl = U.el('#rlWhoami');
+    if (whoEl) {
+      if (identityDone()) {
+        whoEl.hidden = false;
+        whoEl.textContent = '현재 ' +
+          (S.student.noId ? '학번 해당 없음(비재학생)' : '학번 ' + S.student.id) +
+          ' · ' + S.student.name + '님으로 로그인되어 있습니다';
+      } else {
+        whoEl.hidden = true;
+      }
+    }
     U.el('#rlChips').innerHTML = ROUND_DEFS.map(def => {
       const state = landingRoundState(def);
       const dayNo = def.day.split(' ')[1];

@@ -385,6 +385,32 @@ const Remote = (() => {
     }
   }
 
+  /* 다른 기기에서 이미 제출을 마친 회차가 있으면, 이 기기(로컬 저장소는
+     비어 있음)에도 회차 선택 화면을 그리기 전에 그 사실이 반영돼야 카드가
+     곧바로 "제출완료"로 보이고 눌러도 곧장 채점 결과가 뜬다 — 예전엔
+     회차 하나에 들어간 뒤에야(그것도 화면을 먼저 그려 놓고 뒤늦게)
+     확인해서, 카드 목록은 계속 "입장" 상태로 보이고 눌러야만(그것도
+     새로 시작하는 화면이 잠깐 보였다 결과로 바뀌며) 알 수 있었다. 6개
+     회차를 한 번에 조회해 이미 채점된 것만 돌려준다. */
+  async function fetchMySubmittedRounds({ id, name, noId }) {
+    if (!enabled) return { ok: false, results: {} };
+    try {
+      const snaps = await Promise.all(
+        ROUND_KEYS.map(k => db.collection(ROUND_COLLECTION).doc(roundCanonicalKey(k, id, name, noId)).get())
+      );
+      const results = {};
+      snaps.forEach((snap, i) => {
+        if (!snap.exists) return;
+        const data = snap.data();
+        if (data.dup || typeof data.score !== 'number') return;
+        results[ROUND_KEYS[i]] = data;
+      });
+      return { ok: true, results };
+    } catch (e) {
+      return { ok: false, results: {}, error: e };
+    }
+  }
+
   /* saveResult 와 같은 구조(학번/이름 중 하나에 전체 내용, 다른 한쪽엔 표시용
      마커만)를 회차 단위로 그대로 적용한다. 기존 submissions/scores 컬렉션은
      전혀 건드리지 않고 roundSubmissions/roundScores 에만 쓴다. */
@@ -438,11 +464,40 @@ const Remote = (() => {
     };
   }
 
+  /* 이 기기엔 타이머가 없는(=이 기기 기준으로는 "아직 시작 안 한") 회차를
+     열려는 참인데, 서버에는 이미 roundInProgress 문서가 있으면 — 다른
+     기기(또는 이 기기의 지워진 예전 세션)에서 이미 시작해 지금도 타이머가
+     흐르고 있다는 뜻이다. 답안 마킹·필기는 전부 로컬 저장이라 그 기기에만
+     있으므로, 여기서 타이머만 이어받아 계속하게 하면 답도 필기도 없이
+     시간만 흐르다 빈 답안으로 자동 제출될 위험이 있다 — 그래서 이어받지
+     않고 원래 기기로 돌아가라고 막는다(js/rounds.js 의 enterRound 참고). */
+  async function checkRoundInProgressElsewhere({ id, name, noId, round }) {
+    if (!enabled) return { active: false, checked: false };
+    try {
+      const canonicalKey = roundCanonicalKey(round, id, name, noId);
+      const snap = await db.collection(ROUND_IN_PROGRESS_COLLECTION).doc(canonicalKey).get();
+      return { active: snap.exists, checked: true };
+    } catch (e) {
+      // 확인 자체가 실패한 경우, 정상 응시생을 부당하게 막지 않도록
+      // "없음" 으로 통과시키되 checked:false 로 알려 둔다.
+      return { active: false, checked: false, error: e };
+    }
+  }
+
+  /* enterRound() 는 새로 시작할 때뿐 아니라 이미 시작해 둔 회차를 새로고침
+     등으로 다시 열 때도 이걸 부른다. 예전엔 매번 그냥 set() 으로 덮어써서,
+     roundInProgress.startedAt 이 "최초로 시작한 시각"이 아니라 "마지막으로
+     연 시각"이 돼 버렸다 — 관리자 대시보드의 "현재 응시 중" 목록에 실제
+     경과 시간이 아니라 엉뚱한 값이 뜨는 원인이었다. 이미 문서가 있으면
+     손대지 않고 처음 한 번만 써서 진짜 시작 시각을 그대로 지킨다. */
   async function startRoundInProgress({ id, name, noId, round }) {
     if (!enabled) return { ok: false };
     const canonicalKey = roundCanonicalKey(round, id, name, noId);
     try {
-      await db.collection(ROUND_IN_PROGRESS_COLLECTION).doc(canonicalKey).set({
+      const ref = db.collection(ROUND_IN_PROGRESS_COLLECTION).doc(canonicalKey);
+      const snap = await ref.get();
+      if (snap.exists) return { ok: true };
+      await ref.set({
         round, name: name || null, id: (!noId && id) ? id : null, noId: !!noId,
         startedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
@@ -514,6 +569,6 @@ const Remote = (() => {
 
   return {
     get enabled() { return enabled; }, checkDuplicate, saveResult, fetchScores, startExam, clearInProgress,
-    checkRoundDuplicate, checkIdentityConflict, saveRoundResult, fetchRoundScores, fetchRoundLeaderboard, startRoundInProgress, clearRoundInProgress
+    checkRoundDuplicate, checkIdentityConflict, fetchMySubmittedRounds, saveRoundResult, fetchRoundScores, fetchRoundLeaderboard, startRoundInProgress, checkRoundInProgressElsewhere, clearRoundInProgress
   };
 })();

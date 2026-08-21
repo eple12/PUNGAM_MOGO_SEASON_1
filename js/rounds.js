@@ -130,8 +130,7 @@ const RoundApp = (() => {
   // "← 랜딩으로" 를 일부러 눌러야만 보이는 화면에만 떠 있게 된다.
   function renderWhoami() {
     const text = identityDone()
-      ? '현재 ' + (S.student.noId ? '학번 해당 없음(비재학생)' : '학번 ' + S.student.id) +
-        ' · ' + S.student.name + '님으로 로그인되어 있습니다'
+      ? (S.student.noId ? S.student.name : S.student.id + ' ' + S.student.name)
       : '';
     ['#rlWhoami', '#rlWhoami2'].forEach(sel => {
       const el = U.el(sel);
@@ -184,9 +183,29 @@ const RoundApp = (() => {
     const cue = U.el('#rlScrollCue');
     hero.classList.add('rl-anim');
 
+    /* anime.js 는 내부적으로 requestAnimationFrame 으로 돌아가는데, 페이지가
+       아직 합성(compositing)되지 않은 채로 로드되는 일부 기기(백그라운드
+       웹뷰 등)에서는 rAF 자체가 한 번도 안 불려 타임라인이 영원히 안
+       끝난다 — 그러면 .rl-anim 의 opacity:0 가 그대로 남아 히어로 전체가
+       계속 안 보인다(js/rounds.js 필기 잉크 SVG 지연 빌드에서 겪은 것과
+       같은 원인). setTimeout 은 탭이 안 보여도 결국 발동하므로 안전망으로
+       두고, 완료 상태를 anime.set() 으로 강제해 어느 시점에 끊겨도 최종
+       모습이 흐트러지지 않게 한다. */
+    let heroFinished = false;
+    function finishHeroIntro() {
+      if (heroFinished) return;
+      heroFinished = true;
+      anime.set(medal, { opacity: 1, rotateY: 0, rotateX: 0, scale: 1 });
+      anime.set(pulse, { opacity: 0, scale: 1 });
+      anime.set(lead, { opacity: 1, translateY: 0 });
+      anime.set(cue, { opacity: 1 });
+      hero.classList.remove('rl-anim');
+    }
+    setTimeout(finishHeroIntro, 2400);
+
     anime.timeline({
       easing: 'cubicBezier(.22,.8,.32,1)',
-      complete: () => hero.classList.remove('rl-anim')
+      complete: finishHeroIntro
     })
       .add({ targets: medal, opacity: [0, 1], rotateY: [200, 0], rotateX: [-18, 0], scale: [.5, 1], duration: 820, easing: 'easeOutElastic(1, .7)' })
       .add({ targets: pulse, opacity: [.65, 0], scale: [1, 2.2], duration: 640, easing: 'easeOutQuad' }, '-=560')
@@ -208,13 +227,23 @@ const RoundApp = (() => {
         if (!entry.isIntersecting) return;
         const el = entry.target;
         io.unobserve(el);
+        let revealed = false;
+        function reveal() {
+          if (revealed) return;
+          revealed = true;
+          anime.set(el, { opacity: 1, translateY: 0 });
+          el.classList.remove('rl-pending');
+        }
+        // playHeroIntro() 와 같은 이유(rAF 가 안 도는 기기에서 anime.js
+        // 타임라인이 안 끝남)로 setTimeout 안전망을 둔다.
+        setTimeout(reveal, 1400);
         anime({
           targets: el,
           opacity: [0, 1],
           translateY: [24, 0],
           duration: 620,
           easing: 'easeOutCubic',
-          complete: () => el.classList.remove('rl-pending')
+          complete: reveal
         });
       });
     }, { threshold: .22 });
@@ -891,6 +920,35 @@ const RoundApp = (() => {
     stopRoundsTicker();
     roundsTicker = setInterval(tickRoundsList, 1000);
     loadRoundsStats();
+    syncSubmittedRoundsFromRemote();
+  }
+
+  /* 다른 기기에서 이미 제출을 마친 회차가 있으면 이 기기의 로컬 상태(비어
+     있을 수 있음)에도 반영해, 카드가 곧바로 "제출완료"로 보이고 눌러도
+     곧장 채점 결과가 뜨게 한다(예전엔 회차 하나에 들어가야만, 그것도
+     화면이 잠깐 보였다 뒤늦게 바뀌며 알 수 있었다). */
+  async function syncSubmittedRoundsFromRemote() {
+    if (!Remote.enabled) return;
+    const r = await Remote.fetchMySubmittedRounds({ id: S.student.id, name: S.student.name, noId: S.student.noId });
+    if (!r.ok) return;
+    let changed = false;
+    S.roundSubmitted = S.roundSubmitted || {};
+    S.roundResults = S.roundResults || {};
+    Object.keys(r.results).forEach(key => {
+      if (S.roundSubmitted[key]) return;   // 이 기기가 이미 알고 있음(중복 반영 방지)
+      const def = ROUND_DEFS.find(d => d.key === key);
+      if (!def) return;
+      S.roundSubmitted[key] = true;
+      S.roundResults[key] = rebuildResultFromRemote(def, r.results[key]);
+      changed = true;
+    });
+    if (!changed) return;
+    Store.save(true);
+    // 그 사이 다른 화면으로 넘어갔으면(응답이 늦게 온 경우) 다시 그리지 않는다.
+    if (U.el('#screenRounds').classList.contains('is-active')) {
+      buildRoundGrid();
+      attachCardTilt();
+    }
   }
 
   /* 회차 선택 화면 하단 — 전체 응시자의 회차 합산 점수 분포와 학년별
@@ -1672,10 +1730,51 @@ const RoundApp = (() => {
       return;
     }
 
+    // 다른 기기에서 이미 제출한 회차일 수 있다 — 화면을 띄우기 전에 먼저
+    // 확인한다. 예전엔 이 확인이 화면을 다 그린 뒤에야 백그라운드로 뒤늦게
+    // 왔었는데, 그러면 "새로 시작하는 화면"이 잠깐 보였다가 뒤늦게 결과로
+    // 바뀌는 게 눈에 띄었다(showRoundsScreen() 의 syncSubmittedRoundsFromRemote()
+    // 가 회차 목록 화면에서 미리 다 확인해 두지만, boot() 이 곧장 이 함수로
+    // 들어오는 경로도 있어 여기서도 한 번 더 확인해야 한다).
+    if (Remote.enabled) {
+      const r = await Remote.checkRoundDuplicate({ id: S.student.id, name: S.student.name, noId: S.student.noId, round: key });
+      if (r.duplicate && S.roundKey === key) {
+        const result = rebuildResultFromRemote(def, r.data || {});
+        S.roundSubmitted = S.roundSubmitted || {};
+        S.roundSubmitted[key] = true;
+        S.roundResults = S.roundResults || {};
+        S.roundResults[key] = result;
+        Store.save(true);
+        showRoundResult(def, result);
+        return;
+      }
+    }
+
     // 아직 한 번도 시작하지 않은 회차라면(타이머가 없다면) 실수로 시작하지
     // 않도록 한 번 더 확인을 받는다 — 이미 시작해 둔 회차를 새로고침 등으로
     // 다시 불러오는 경우(타이머가 이미 있음)에는 다시 묻지 않는다.
     const fresh = !(S.roundTimers && S.roundTimers[key]);
+
+    // 이 기기엔 타이머가 없는데(fresh) 서버에는 이미 이 회차의 진행 기록이
+    // 있다면 — 다른 기기(또는 이 기기의 지워진 예전 세션)에서 지금도 그
+    // 회차가 진행 중이라는 뜻이다. 답안 마킹과 필기는 전부 로컬 저장이라
+    // 그 기기에만 있으므로, 여기서 이어받게 두면 답도 필기도 없이 시간만
+    // 흐르다 빈 답안으로 자동 제출되어 원래 기기의 진행 상황을 덮어쓸 수
+    // 있다. 그래서 이어받지 않고 막고 경고만 보여준다.
+    if (fresh && Remote.enabled) {
+      const p = await Remote.checkRoundInProgressElsewhere({ id: S.student.id, name: S.student.name, noId: S.student.noId, round: key });
+      if (p.active && S.roundKey === key) {
+        await U.modal({
+          title: '이미 진행 중인 회차입니다',
+          body: '<p>이 회차는 다른 기기(또는 이전 세션)에서 이미 시작되어 지금도 타이머가 흐르고 있습니다.</p>' +
+                '<p>답안과 필기는 그 기기에만 저장되어 있어 이 기기에서 이어서 볼 수 없습니다. 원래 시작했던 기기에서 계속 진행해 주세요. 그 기기를 찾을 수 없다면 감독관에게 문의해 주세요.</p>',
+          buttons: [{ label: '확인', value: true, kind: 'primary' }]
+        });
+        showRoundsScreen();
+        return;
+      }
+    }
+
     if (fresh) {
       const ok = await U.modal({
         title: def.day + ' 시작',
@@ -1695,19 +1794,6 @@ const RoundApp = (() => {
 
     if (Remote.enabled) {
       Remote.startRoundInProgress({ id: S.student.id, name: S.student.name, noId: S.student.noId, round: key });
-      // 다른 기기·새로고침으로 로컬 기록은 없지만 서버에는 이미 제출된 경우를
-      // 대비한 뒤늦은 확인 — 화면은 먼저 정상적으로 보여준 뒤 백그라운드로 확인한다.
-      Remote.checkRoundDuplicate({ id: S.student.id, name: S.student.name, noId: S.student.noId, round: key }).then(r => {
-        if (!r.duplicate || S.roundKey !== key) return;
-        if (S.roundSubmitted && S.roundSubmitted[key]) return;
-        const result = rebuildResultFromRemote(def, r.data || {});
-        S.roundSubmitted = S.roundSubmitted || {};
-        S.roundSubmitted[key] = true;
-        S.roundResults = S.roundResults || {};
-        S.roundResults[key] = result;
-        Store.save(true);
-        showRoundResult(def, result);
-      });
     }
   }
 

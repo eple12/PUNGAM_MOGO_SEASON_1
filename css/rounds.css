@@ -443,16 +443,18 @@
    (왼쪽) · 필기 도구·실행취소·제출(오른쪽, margin-left:auto 로 계속
    끝에 붙는다). .rebar__center 를 그동안 잡아 두던 절대좌표 가운데
    정렬(막대 전체 기준)도 줄바꿈과 상극이라 함께 풀어 준다. */
-/* 세로 폭에서는 좌측 그룹(뒤로가기·제목·타이머)을 1줄, 도구 그룹(필기
-   도구·실행취소·제출)을 그 아래 2줄로 올리고, 문항 이동(◀ 1/5 ▶)은
-   맨 아래 줄 전체를 혼자 차지해 폭 전체 기준으로 정중앙에 오게 한다 —
-   .rebar__center 가 .rebar__right 와 한 줄을 나눠 쓰던 이전엔 남는
-   공간의 중앙일 뿐 막대 전체의 중앙이 아니었다. DOM 순서(left·center·
-   right)와 보이는 순서(left·right·center)가 달라 order 로 재배치한다. */
+/* 세로 폭에서는 도구 그룹(필기 도구·실행취소·제출)을 좌측 그룹(뒤로가기·
+   제목·타이머)과 같은 줄 오른쪽 끝에 붙여 두 줄로 끝내고, 문항 이동
+   (◀ 1/5 ▶)만 아래 줄 전체를 혼자 차지해 막대 폭 전체 기준으로 정중앙에
+   오게 한다 — .rebar__center 가 도구 그룹과 한 줄을 나눠 쓰던 이전엔 남는
+   공간의 중앙일 뿐 막대 전체의 중앙이 아니었다.
+   좌측·도구 그룹은 폭을 고정하지 않아, 둘이 한 줄에 안 들어가는 좁은
+   화면(휴대폰 등)에서는 flex-wrap 이 알아서 도구 그룹만 다음 줄로 내린다.
+   DOM 순서(left·center·right)와 보이는 순서가 달라 order 로 재배치한다. */
 @media (max-width:900px){
   .rebar{flex-wrap:wrap;height:auto;min-height:58px;padding:8px 14px;row-gap:8px}
-  .rebar__left{flex:1 1 100%;order:1}
-  .rebar__right{flex:1 1 100%;order:2;margin-left:0;justify-content:center}
+  .rebar__left{flex:1 1 auto;order:1}
+  .rebar__right{flex:0 0 auto;order:2;margin-left:auto}
   .rebar__center{position:static;transform:none;flex:1 1 100%;order:3;justify-content:center}
   .rebar__title{gap:9px}
   .rebar__day{font-size:16.5px}
